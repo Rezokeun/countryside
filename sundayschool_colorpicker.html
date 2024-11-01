@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Picker Game</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background-color: #f0f0f0;
+        }
+        .quadrant {
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            opacity: 0.1; /* Set default opacity to 10% */
+            transition: opacity 0.2s;
+        }
+        #green {
+            background-color: green;
+            top: 0;
+            left: 0;
+        }
+        #blue {
+            background-color: blue;
+            top: 0;
+            right: 0;
+        }
+        #orange {
+            background-color: orange;
+            bottom: 0;
+            left: 0;
+        }
+        #red {
+            background-color: red;
+            bottom: 0;
+            right: 0;
+        }
+        #startButton {
+            position: absolute;
+            padding: 20px;
+            font-size: 18px;
+            cursor: pointer;
+            z-index: 10;
+        }
+        #countdown {
+            position: absolute;
+            font-size: 25vh; /* 1/4 of the screen size */
+            color: black;
+            background-color: white; /* White background for better visibility */
+            border-radius: 10px;
+            padding: 20px;
+            display: none;
+            z-index: 5;
+            text-align: center;
+        }
+        #timerInput {
+            position: absolute;
+            bottom: 20px;
+            font-size: 18pt; /* 18 point font */
+            z-index: 10;
+            padding: 10px;
+            text-align: center;
+        }
+        audio {
+            display: none; /* Hide audio elements */
+        }
+    </style>
+</head>
+<body>
+    <div class="quadrant" id="green"></div>
+    <div class="quadrant" id="blue"></div>
+    <div class="quadrant" id="orange"></div>
+    <div class="quadrant" id="red"></div>
+    <button id="startButton">Start</button>
+    <div id="countdown">10</div>
+    <input type="number" id="timerInput" placeholder="Set Timer (seconds)" min="1">
+
+    <audio id="backgroundMusic" src="jeopardy.mp3" loop></audio>
+    <audio id="dingSound" src="ding.mp3"></audio>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const countdown = document.getElementById('countdown');
+        const timerInput = document.getElementById('timerInput');
+        const colors = ['green', 'blue', 'orange', 'red'];
+        let interval;
+        let countdownInterval;
+        let countdownTime;
+        let timerDuration = 10; // Default timer duration
+
+        startButton.addEventListener('click', startGame);
+
+        // Load the saved timer value when the page loads
+        window.onload = () => {
+            timerInput.value = timerDuration;
+        };
+
+        function startGame() {
+            countdownTime = parseInt(timerInput.value) || 10; // Get input value or default to 10
+            timerDuration = countdownTime; // Save the timer duration for future rounds
+            startButton.style.display = 'none';
+            timerInput.style.display = 'none'; // Hide input after starting
+            setOpacityForAll(0.1);
+            countdown.style.display = 'block';
+            countdown.innerText = countdownTime; // Display initial countdown time
+            document.getElementById('backgroundMusic').play(); // Play background music
+            cycleColors();
+            startCountdown();
+        }
+
+        function setOpacityForAll(opacity) {
+            colors.forEach(color => {
+                document.getElementById(color).style.opacity = opacity;
+            });
+        }
+
+        function cycleColors() {
+            let timeElapsed = 0;
+            const durations = [
+                { duration: 5000, interval: 300 },  // First 5 seconds, 1 color every 0.3 seconds
+                { duration: 3000, interval: 500 },  // Next 3 seconds, 1 color every 0.5 seconds
+                { duration: 2000, interval: 700 }   // Last 2 seconds, 1 color every 0.7 seconds
+            ];
+            let currentDurationIndex = 0;
+
+            interval = setInterval(() => {
+                if (timeElapsed >= durations[currentDurationIndex].duration) {
+                    timeElapsed = 0;
+                    currentDurationIndex++;
+                    clearInterval(interval);
+                    if (currentDurationIndex < durations.length) {
+                        interval = setInterval(cycle, durations[currentDurationIndex].interval);
+                    } else {
+                        clearInterval(interval);
+                        return;
+                    }
+                }
+                cycle();
+                timeElapsed += durations[currentDurationIndex].interval;
+            }, durations[currentDurationIndex].interval);
+        }
+
+        function cycle() {
+            const selectedColor = colors[Math.floor(Math.random() * colors.length)];
+            setOpacityForAll(0.1);
+            document.getElementById(selectedColor).style.opacity = 1;
+        }
+
+        function startCountdown() {
+            countdownInterval = setInterval(() => {
+                countdownTime--;
+                countdown.innerText = countdownTime;
+
+                if (countdownTime <= 0) {
+                    clearInterval(countdownInterval);
+                    document.getElementById('backgroundMusic').pause(); // Pause background music
+                    document.getElementById('dingSound').play(); // Play ding sound
+                    countdown.style.display = 'none';
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            clearInterval(interval);
+            setOpacityForAll(0.1);
+            const finalColor = colors[Math.floor(Math.random() * colors.length)];
+            document.getElementById(finalColor).style.opacity = 1;
+            startButton.style.display = 'block';
+            timerInput.style.display = 'block'; // Show input again for next game
+            timerInput.value = timerDuration; // Keep the previous timer value
+        }
+    </script>
+</body>
+</html>
