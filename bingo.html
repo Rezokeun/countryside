@@ -110,10 +110,10 @@
     <h2>Saved sets</h2>
     <div class="row">
       <button class="primary" id="newBtn">+ New set</button>
-      <label class="filebtn">Import<input type="file" id="importFile" accept="application/json"></label>
+      <label class="filebtn">Import file<input type="file" id="importFile" accept=".json,application/json"></label>
     </div>
     <ul id="setList"></ul>
-    <p class="hint" id="libHint">Sets are saved in this browser. Use Export to back one up or move it to another device.</p>
+    <p class="hint" id="libHint">Sets are saved in this browser. Export (⤓) downloads a set as a .bingo.json file with its images included, so you can back it up or import it on another device.</p>
   </section>
 
   <!-- Editor -->
@@ -130,7 +130,7 @@
     </div>
     <div class="row">
       <button class="primary" id="saveBtn">Save set</button>
-      <button id="exportBtn">Export</button>
+      <button id="exportBtn" title="Download this set, images included, as a .bingo.json file">Export file</button>
       <button id="clearBtn">Clear all squares</button>
       <span id="status" class="hint" style="margin:0"></span>
     </div>
@@ -210,13 +210,14 @@
       const li = document.createElement('li');
       if (current && s.id === current.id) li.classList.add('active');
       const filled = s.cells.filter(c => c.text || c.image).length;
-      li.innerHTML = `<span class="name"></span><span class="meta">${s.size}×${s.size} · ${filled}/${s.cells.length}</span><button class="danger" title="Delete">✕</button>`;
+      li.innerHTML = `<span class="name"></span><span class="meta">${s.size}×${s.size} · ${filled}/${s.cells.length}</span><button class="exp" title="Export as file">⤓</button><button class="danger" title="Delete">✕</button>`;
       li.querySelector('.name').textContent = s.name || '(untitled)';
       li.addEventListener('click', e => {
         if (e.target.tagName === 'BUTTON') return;
         openSet(structuredClone(s));
       });
-      li.querySelector('button').addEventListener('click', () => {
+      li.querySelector('.exp').addEventListener('click', () => downloadSet(s));
+      li.querySelector('.danger').addEventListener('click', () => {
         if (!confirm(`Delete "${s.name || 'untitled'}"? This cannot be undone.`)) return;
         sets = sets.filter(x => x.id !== s.id);
         persistSets();
@@ -371,14 +372,15 @@
     renderCells(); renderCard();
   });
 
-  $('exportBtn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(current, null, 2)], { type: 'application/json' });
+  function downloadSet(s) {
+    const blob = new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = (current.name || 'bingo-set').replace(/[^\w\- ]+/g, '').trim() + '.bingo.json';
+    a.download = (s.name || 'bingo-set').replace(/[^\w\- ]+/g, '').trim() + '.bingo.json';
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  });
+  }
+  $('exportBtn').addEventListener('click', () => downloadSet(current));
 
   $('importFile').addEventListener('change', async () => {
     const f = $('importFile').files[0];
