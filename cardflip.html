@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Card Flip Review Game</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #1c1e21;
+      --muted: #5f6368;
+      --accent: #3b6ef5;
+      --border: #e1e4e8;
+      --back: #2b2f36;
+      --back-text: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121417;
+        --card: #1c1f24;
+        --text: #e8eaed;
+        --muted: #9aa0a6;
+        --accent: #7aa2ff;
+        --border: #2b2f36;
+        --back: #3a3f48;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ---------- top bar ---------- */
+    header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px;
+      background: var(--card); border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 1.1rem; margin: 0; flex: 1; }
+    header a { color: var(--muted); text-decoration: none; font-size: .9rem; }
+    header a:hover { color: var(--accent); }
+    button {
+      font: inherit; font-size: .9rem; padding: 7px 12px; border-radius: 7px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button.danger { color: #d93025; }
+    button.danger.armed { background: #d93025; color: #fff; border-color: #d93025; }
+    button:disabled { opacity: .5; cursor: default; }
+
+    /* ---------- scoreboard ---------- */
+    #scoreboard {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      padding: 12px 16px 0;
+    }
+    .team {
+      position: relative;
+      border-radius: 14px; padding: 10px 14px 12px;
+      color: #fff; text-align: center;
+      display: flex; flex-direction: column; align-items: center;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+      transition: transform .2s;
+    }
+    .team.pulse { animation: pulse .7s ease; }
+    @keyframes pulse { 0%{transform:scale(1)} 40%{transform:scale(1.05)} 100%{transform:scale(1)} }
+    .team .name { font-size: clamp(1rem, 2.6vw, 1.6rem); font-weight: 700; letter-spacing: .02em; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+    .team .score { font-size: clamp(2.6rem, 9vw, 6rem); font-weight: 800; line-height: 1; text-shadow: 0 2px 4px rgba(0,0,0,.35); }
+    .team .adjust { display: flex; gap: 8px; margin-top: 4px; }
+    .team .adjust button {
+      width: 34px; height: 30px; padding: 0; font-size: 1.1rem; line-height: 1;
+      background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.35); color: #fff;
+    }
+    .team .adjust button:hover { background: rgba(255,255,255,.32); }
+    .team .gain {
+      position: absolute; top: 8px; right: 14px;
+      font-size: clamp(1.4rem, 4vw, 2.6rem); font-weight: 800; opacity: 0;
+      text-shadow: 0 2px 4px rgba(0,0,0,.4);
+    }
+    .team .gain.show { animation: rise 1.4s ease forwards; }
+    @keyframes rise { 0%{opacity:0; transform:translateY(10px)} 20%{opacity:1} 100%{opacity:0; transform:translateY(-30px)} }
+
+    /* ---------- cards ---------- */
+    main { flex: 1; display: flex; flex-direction: column; padding: 12px 16px 16px; gap: 12px; }
+    #cards {
+      flex: 1; display: grid; gap: 16px;
+      grid-template-columns: repeat(var(--n, 2), 1fr);
+      min-height: 46vh;
+    }
+    .card {
+      perspective: 1200px; cursor: pointer; border: none; background: none; padding: 0;
+      border-radius: 18px;
+    }
+    .card:disabled { cursor: default; opacity: 1; }
+    .card .inner {
+      position: relative; width: 100%; height: 100%;
+      transform-style: preserve-3d; transition: transform .7s cubic-bezier(.2,.7,.2,1);
+      border-radius: 18px;
+    }
+    .card.flipped .inner { transform: rotateY(180deg); }
+    .card .face {
+      position: absolute; inset: 0; border-radius: 18px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+      box-shadow: 0 6px 18px rgba(0,0,0,.18);
+    }
+    .card .back {
+      background: var(--back); color: var(--back-text);
+      background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.06) 0 12px, transparent 12px 24px);
+      border: 4px solid rgba(255,255,255,.25);
+    }
+    .card .back .letter { font-size: clamp(4rem, 18vh, 14rem); font-weight: 800; line-height: 1; }
+    .card .back .hint { font-size: clamp(.8rem, 1.6vw, 1.1rem); opacity: .7; margin-top: 8px; }
+    .card .front {
+      transform: rotateY(180deg); color: #fff;
+      border: 4px solid rgba(255,255,255,.5);
+    }
+    .card .front .pts { font-size: clamp(3.5rem, 16vh, 12rem); font-weight: 800; line-height: 1; text-shadow: 0 3px 6px rgba(0,0,0,.35); }
+    .card .front .who { font-size: clamp(1rem, 3vw, 2rem); font-weight: 700; margin-top: 6px; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
+    .card:not(.flipped):not(:disabled):hover .inner { transform: translateY(-4px); }
+    .card.chosen .front { box-shadow: 0 0 0 6px #fff, 0 0 40px rgba(255,255,255,.6), 0 6px 18px rgba(0,0,0,.18); }
+    .card.peek .front::after {
+      content: ''; position: absolute; inset: -4px; border-radius: 18px;
+      background: rgba(0,0,0,.5);
+    }
+
+    #roundbar { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 44px; }
+    #roundbar .msg { color: var(--muted); font-size: .95rem; }
+    #nextBtn { font-size: 1.1rem; padding: 10px 22px; }
+
+    /* ---------- setup overlay ---------- */
+    #setup {
+      position: fixed; inset: 0; background: rgba(0,0,0,.55);
+      display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 20;
+    }
+    #setup[hidden] { display: none; }
+    .panel {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      width: 100%; max-width: 560px; max-height: 92vh; overflow: auto;
+      padding: 20px;
+    }
+    .panel h2 { margin: 0 0 14px; font-size: 1.25rem; }
+    .panel h3 { margin: 18px 0 8px; font-size: .95rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .row + .row { margin-top: 8px; }
+    input[type=text], select {
+      font: inherit; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px;
+      background: var(--bg); color: var(--text);
+    }
+    input[type=text] { flex: 1; min-width: 120px; }
+    input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); cursor: pointer; }
+    .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .presets label {
+      border: 1px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; text-align: center;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .presets label:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+    .presets label input { display: none; }
+    .presets strong { font-size: .95rem; }
+    .presets small { color: var(--muted); font-size: .8rem; }
+    #customDeck { display: flex; flex-direction: column; gap: 6px; }
+    #customDeck[hidden] { display: none; }
+    .cardrow { display: grid; grid-template-columns: 36px 1fr 100px; gap: 8px; align-items: center; }
+    .cardrow .lbl { font-weight: 700; text-align: center; background: var(--back); color: #fff; border-radius: 6px; padding: 6px 0; }
+    .summary { color: var(--muted); font-size: .9rem; margin-top: 10px; }
+    .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .help { color: var(--muted); font-size: .85rem; margin: 6px 0 0; line-height: 1.4; }
+
+    @media (max-width: 600px) {
+      #cards { grid-template-columns: repeat(2, 1fr); min-height: 0; }
+      .card { aspect-ratio: 3 / 4; }
+      .presets { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Card Flip</h1>
+    <a href="index.html">All pages</a>
+    <button id="setupBtn">Setup</button>
+    <button id="resetBtn" class="danger">Reset game</button>
+  </header>
+
+  <section id="scoreboard"></section>
+
+  <main>
+    <div id="cards"></div>
+    <div id="roundbar">
+      <span class="msg" id="msg"></span>
+      <button id="nextBtn" class="primary" hidden>Next round</button>
+    </div>
+  </main>
+
+  <div id="setup" hidden>
+    <div class="panel">
+      <h2>Game setup</h2>
+
+      <h3>Teams</h3>
+      <div class="row">
+        <input type="color" id="color0">
+        <input type="text" id="name0" placeholder="Team 1 name" maxlength="24">
+      </div>
+      <div class="row">
+        <input type="color" id="color1">
+        <input type="text" id="name1" placeholder="Team 2 name" maxlength="24">
+      </div>
+
+      <h3>Cards</h3>
+      <div class="presets">
+        <label><input type="radio" name="preset" value="2"><strong>2 cards</strong><small>1 point each team</small></label>
+        <label><input type="radio" name="preset" value="4"><strong>4 cards</strong><small>1 &amp; 2 points each team</small></label>
+        <label><input type="radio" name="preset" value="custom"><strong>Custom</strong><small>Pick each card</small></label>
+      </div>
+      <div id="customDeck" hidden>
+        <div class="row" style="margin:10px 0 4px">
+          <span>Number of cards</span>
+          <select id="customCount">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+        <div id="customRows"></div>
+      </div>
+      <p class="summary" id="deckSummary"></p>
+      <p class="help">Cards shuffle every round and go back face down. Have the kids stand by the letter they want, then click that card.</p>
+
+      <div class="actions">
+        <button id="cancelSetup">Cancel</button>
+        <button id="applySetup" class="primary">Save &amp; start round</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="ding" src="ding.mp3" preload="auto"></audio>
+
+  <script>
+    const KEY = 'cardflip.v1';
+    const LETTERS = ['A', 'B', 'C', 'D'];
+    const PRESETS = {
+      '2': [{ team: 0, value: 1 }, { team: 1, value: 1 }],
+      '4': [{ team: 0, value: 1 }, { team: 0, value: 2 }, { team: 1, value: 1 }, { team: 1, value: 2 }],
+    };
+
+    const defaultState = () => ({
+      teams: [{ name: 'Red', color: '#d93025' }, { name: 'Blue', color: '#1a73e8' }],
+      scores: [0, 0],
+      preset: '2',
+      deck: PRESETS['2'].map(c => ({ ...c })),
+      order: [],        // deck indices in display order for the current round
+      flipped: null,    // display position that was chosen this round, or null
+    });
+
+    let state = load();
+    let firstRun = !state;
+    if (!state) state = defaultState();
+    if (!state.order.length) newRound(false);
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        if (!s || !Array.isArray(s.teams) || !Array.isArray(s.deck)) return null;
+        return { ...defaultState(), ...s };
+      } catch { return null; }
+    }
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+    }
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function newRound(doSave = true) {
+      state.order = shuffle(state.deck.map((_, i) => i));
+      state.flipped = null;
+      if (doSave) save();
+    }
+
+    // ---------- rendering ----------
+    const scoreboard = document.getElementById('scoreboard');
+    const cardsEl = document.getElementById('cards');
+    const msgEl = document.getElementById('msg');
+    const nextBtn = document.getElementById('nextBtn');
+    const ding = document.getElementById('ding');
+
+    function renderScoreboard() {
+      scoreboard.innerHTML = '';
+      state.teams.forEach((t, i) => {
+        const div = document.createElement('div');
+        div.className = 'team';
+        div.style.background = t.color;
+        div.dataset.team = i;
+        div.innerHTML = `
+          <div class="name"></div>
+          <div class="score">${state.scores[i]}</div>
+          <div class="adjust">
+            <button type="button" data-delta="-1" title="Subtract a point">−</button>
+            <button type="button" data-delta="1" title="Add a point">+</button>
+          </div>
+          <div class="gain"></div>`;
+        div.querySelector('.name').textContent = t.name;
+        div.querySelectorAll('.adjust button').forEach(b => {
+          b.addEventListener('click', () => adjust(i, parseInt(b.dataset.delta, 10)));
+        });
+        scoreboard.appendChild(div);
+      });
+    }
+
+    function renderCards() {
+      cardsEl.style.setProperty('--n', state.order.length);
+      cardsEl.innerHTML = '';
+      state.order.forEach((deckIdx, pos) => {
+        const c = state.deck[deckIdx];
+        const team = state.teams[c.team];
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'card';
+        btn.dataset.pos = pos;
+        btn.setAttribute('aria-label', `Card ${LETTERS[pos]}`);
+        btn.innerHTML = `
+          <div class="inner">
+            <div class="face back">
+              <div class="letter">${LETTERS[pos]}</div>
+              <div class="hint">Click to flip</div>
+            </div>
+            <div class="face front">
+              <div class="pts">+${c.value}</div>
+              <div class="who"></div>
+            </div>
+          </div>`;
+        btn.querySelector('.front').style.background = team.color;
+        btn.querySelector('.who').textContent = team.name;
+        if (state.flipped !== null) {
+          btn.disabled = true;
+          btn.classList.add('flipped');
+          btn.classList.add(pos === state.flipped ? 'chosen' : 'peek');
+        }
+        btn.addEventListener('click', () => flip(pos));
+        cardsEl.appendChild(btn);
+      });
+      const done = state.flipped !== null;
+      nextBtn.hidden = !done;
+      if (done) {
+        const c = state.deck[state.order[state.flipped]];
+        msgEl.textContent = `Card ${LETTERS[state.flipped]}: ${state.teams[c.team].name} +${c.value}`;
+      } else {
+        msgEl.textContent = 'Ask a question, let the kids pick a letter, then flip it.';
+      }
+    }
+
+    function renderAll() { renderScoreboard(); renderCards(); }
+
+    // ---------- game actions ----------
+    function flip(pos) {
+      if (state.flipped !== null) return;
+      state.flipped = pos;
+      const c = state.deck[state.order[pos]];
+      state.scores[c.team] += c.value;
+      save();
+
+      try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {}
+
+      const btn = cardsEl.querySelector(`.card[data-pos="${pos}"]`);
+      cardsEl.querySelectorAll('.card').forEach(b => { b.disabled = true; });
+      btn.classList.add('flipped', 'chosen');
+
+      // Update the score when the card is mostly turned over.
+      setTimeout(() => {
+        const teamEl = scoreboard.querySelector(`.team[data-team="${c.team}"]`);
+        teamEl.querySelector('.score').textContent = state.scores[c.team];
+        teamEl.classList.remove('pulse'); void teamEl.offsetWidth; teamEl.classList.add('pulse');
+        const gain = teamEl.querySelector('.gain');
+        gain.textContent = `+${c.value}`;
+        gain.classList.remove('show'); void gain.offsetWidth; gain.classList.add('show');
+        msgEl.textContent = `Card ${LETTERS[pos]}: ${state.teams[c.team].name} +${c.value}`;
+      }, 400);
+
+      // Reveal what the other cards would have been.
+      setTimeout(() => {
+        cardsEl.querySelectorAll('.card').forEach(b => {
+          if (b !== btn) b.classList.add('flipped', 'peek');
+        });
+        nextBtn.hidden = false;
+        nextBtn.focus();
+      }, 1100);
+    }
+
+    function adjust(team, delta) {
+      state.scores[team] = Math.max(0, state.scores[team] + delta);
+      save();
+      const teamEl = scoreboard.querySelector(`.team[data-team="${team}"]`);
+      teamEl.querySelector('.score').textContent = state.scores[team];
+    }
+
+    nextBtn.addEventListener('click', () => { newRound(); renderCards(); });
+
+    // Reset requires two clicks within a few seconds so a stray click can't wipe the game.
+    const resetBtn = document.getElementById('resetBtn');
+    let resetTimer = null;
+    resetBtn.addEventListener('click', () => {
+      if (!resetBtn.classList.contains('armed')) {
+        resetBtn.classList.add('armed');
+        resetBtn.textContent = 'Click again to reset';
+        resetTimer = setTimeout(disarmReset, 4000);
+        return;
+      }
+      disarmReset();
+      state.scores = [0, 0];
+      newRound();
+      renderAll();
+    });
+    function disarmReset() {
+      clearTimeout(resetTimer);
+      resetBtn.classList.remove('armed');
+      resetBtn.textContent = 'Reset game';
+    }
+
+    // Keyboard: A–D or 1–4 flips a card, N or Enter starts the next round.
+    document.addEventListener('keydown', e => {
+      if (!setup.hidden || (e.target instanceof Element && e.target.matches('input, select, textarea'))) return;
+      const k = e.key.toUpperCase();
+      let pos = LETTERS.indexOf(k);
+      if (pos < 0 && /^[1-4]$/.test(k)) pos = parseInt(k, 10) - 1;
+      if (pos >= 0 && pos < state.order.length && state.flipped === null) { flip(pos); return; }
+      if ((k === 'N' || e.key === 'Enter') && state.flipped !== null) { newRound(); renderCards(); }
+    });
+
+    // ---------- setup panel ----------
+    const setup = document.getElementById('setup');
+    const customDeck = document.getElementById('customDeck');
+    const customCount = document.getElementById('customCount');
+    const customRows = document.getElementById('customRows');
+    const deckSummary = document.getElementById('deckSummary');
+    let draftDeck = [];
+
+    function openSetup() {
+      state.teams.forEach((t, i) => {
+        document.getElementById('name' + i).value = t.name;
+        document.getElementById('color' + i).value = t.color;
+      });
+      document.querySelector(`input[name=preset][value="${state.preset}"]`).checked = true;
+      draftDeck = state.deck.map(c => ({ ...c }));
+      customCount.value = String(draftDeck.length);
+      syncPresetUI();
+      setup.hidden = false;
+      document.getElementById('name0').focus();
+    }
+    function closeSetup() { setup.hidden = true; }
+
+    function currentPreset() { return document.querySelector('input[name=preset]:checked').value; }
+    function draftTeamNames() {
+      return [0, 1].map(i => document.getElementById('name' + i).value.trim() || (i === 0 ? 'Red' : 'Blue'));
+    }
+    function currentDraftDeck() {
+      const p = currentPreset();
+      return p === 'custom' ? draftDeck : PRESETS[p];
+    }
+
+    function syncPresetUI() {
+      const p = currentPreset();
+      customDeck.hidden = p !== 'custom';
+      if (p === 'custom') renderCustomRows();
+      renderSummary();
+    }
+
+    function renderCustomRows() {
+      const n = parseInt(customCount.value, 10);
+      while (draftDeck.length < n) draftDeck.push({ team: draftDeck.length % 2, value: 1 });
+      draftDeck.length = n;
+      const names = draftTeamNames();
+      customRows.innerHTML = '';
+      draftDeck.forEach((c, i) => {
+        const row = document.createElement('div');
+        row.className = 'cardrow';
+        row.innerHTML = `
+          <span class="lbl">${LETTERS[i]}</span>
+          <select data-k="team">
+            <option value="0"></option><option value="1"></option>
+          </select>
+          <select data-k="value">
+            <option value="1">1 point</option><option value="2">2 points</option>
+          </select>`;
+        const teamSel = row.querySelector('[data-k=team]');
+        teamSel.options[0].textContent = names[0];
+        teamSel.options[1].textContent = names[1];
+        teamSel.value = String(c.team);
+        row.querySelector('[data-k=value]').value = String(c.value);
+        row.querySelectorAll('select').forEach(sel => {
+          sel.addEventListener('change', () => {
+            c[sel.dataset.k] = parseInt(sel.value, 10);
+            renderSummary();
+          });
+        });
+        customRows.appendChild(row);
+      });
+    }
+
+    function renderSummary() {
+      const names = draftTeamNames();
+      const deck = currentDraftDeck();
+      const totals = [0, 0], counts = [0, 0];
+      deck.forEach(c => { totals[c.team] += c.value; counts[c.team]++; });
+      deckSummary.textContent =
+        `${deck.length} cards: ${names[0]} has ${counts[0]} card${counts[0] === 1 ? '' : 's'} worth ${totals[0]}, ` +
+        `${names[1]} has ${counts[1]} card${counts[1] === 1 ? '' : 's'} worth ${totals[1]}.`;
+    }
+
+    document.querySelectorAll('input[name=preset]').forEach(r => r.addEventListener('change', syncPresetUI));
+    customCount.addEventListener('change', () => { renderCustomRows(); renderSummary(); });
+    ['name0', 'name1'].forEach(id => document.getElementById(id).addEventListener('input', () => {
+      if (currentPreset() === 'custom') renderCustomRows();
+      renderSummary();
+    }));
+
+    document.getElementById('setupBtn').addEventListener('click', openSetup);
+    document.getElementById('cancelSetup').addEventListener('click', () => {
+      if (firstRun) { firstRun = false; save(); renderAll(); }
+      closeSetup();
+    });
+    document.getElementById('applySetup').addEventListener('click', () => {
+      const names = draftTeamNames();
+      state.teams = [0, 1].map(i => ({ name: names[i], color: document.getElementById('color' + i).value }));
+      state.preset = currentPreset();
+      state.deck = currentDraftDeck().map(c => ({ ...c }));
+      firstRun = false;
+      newRound();
+      renderAll();
+      closeSetup();
+    });
+    setup.addEventListener('click', e => { if (e.target === setup && !firstRun) closeSetup(); });
+
+    // ---------- boot ----------
+    renderAll();
+    if (firstRun) openSetup();
+  </script>
+</body>
+</html>
