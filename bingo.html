@@ -72,29 +72,40 @@
   .cell-edit .tools .filebtn, .cell-edit .tools button { padding: 3px 7px; font-size: .78rem; flex: 1; text-align: center; }
 
   /* Card preview */
-  #card {
+  .bcard {
     display: grid; gap: 4px; background: #222; padding: 4px; border-radius: 6px;
     aspect-ratio: 1 / 1; width: 100%; max-width: 640px; margin: 0 auto;
   }
-  #card .sq {
+  .bcard .sq {
     background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: 4px; overflow: hidden; font-weight: 600; word-break: break-word; border-radius: 3px;
   }
-  #card .sq img { max-width: 100%; max-height: 100%; object-fit: contain; flex: 1; min-height: 0; }
-  #card .sq .txt { font-size: clamp(.55rem, 1.6vw, 1rem); }
-  #card .sq img + .txt { font-size: clamp(.5rem, 1.1vw, .8rem); margin-top: 2px; }
-  #card .sq.free { background: #ffe58a; }
-  #cardTitle { text-align: center; font-size: 1.4rem; font-weight: 700; margin: 0 0 10px; letter-spacing: .05em; }
+  .bcard .sq img { max-width: 100%; max-height: 100%; object-fit: contain; flex: 1; min-height: 0; }
+  .bcard .sq .txt { font-size: clamp(.55rem, 1.6vw, 1rem); }
+  .bcard .sq img + .txt { font-size: clamp(.5rem, 1.1vw, .8rem); margin-top: 2px; }
+  .bcard .sq.free { background: #ffe58a; }
+  .btitle { text-align: center; font-size: 1.4rem; font-weight: 700; margin: 0 0 10px; letter-spacing: .05em; }
+  #copies { width: 64px; font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px; }
+
+  /* Print sheets: one shuffled card per page */
+  #printSheets { display: none; }
 
   @media (max-width: 1100px) { main { grid-template-columns: 240px 1fr; } #previewSec { grid-column: 1 / -1; } }
   @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
 
   @media print {
+    @page { margin: 12mm; }
     body { background: #fff; }
-    header, #libSec, #editSec, .no-print { display: none !important; }
-    main { display: block; padding: 0; }
-    section { border: none; padding: 0; }
-    #card { max-width: 100%; }
+    header, main { display: none !important; }
+    #printSheets { display: block; }
+    .sheet { page-break-after: always; break-after: page; display: flex; flex-direction: column; align-items: center; }
+    .sheet:last-child { page-break-after: auto; break-after: auto; }
+    .sheet .btitle { font-size: 2rem; margin-bottom: 14px; }
+    .sheet .bcard { max-width: 100%; width: 180mm; background: #000; }
+    .sheet .sq { border-radius: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sheet .sq .txt { font-size: 14pt; }
+    .sheet .sq img + .txt { font-size: 10pt; }
+    .sheet .cardno { margin-top: 8px; color: #666; font-size: 10pt; }
   }
 </style>
 </head>
@@ -156,12 +167,19 @@
     <div class="row no-print">
       <button id="shuffleBtn">Shuffle card</button>
       <button id="resetOrderBtn">Original order</button>
-      <button id="printBtn">Print</button>
+      <span style="flex-basis:100%"></span>
+      <label class="inline">Cards to print
+        <input type="number" id="copies" min="1" max="200" value="1">
+      </label>
+      <button class="primary" id="printBtn">Print cards</button>
     </div>
-    <p id="cardTitle"></p>
-    <div id="card"></div>
+    <p class="hint no-print">Each printed card gets its own random layout, one card per page.</p>
+    <p id="cardTitle" class="btitle"></p>
+    <div id="card" class="bcard"></div>
   </section>
 </main>
+
+<div id="printSheets"></div>
 
 <script>
 (() => {
@@ -325,13 +343,25 @@
   }
 
   // ---------- card preview ----------
+  function shuffledOrder() {
+    const o = current.cells.map((_, i) => i);
+    for (let i = o.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [o[i], o[j]] = [o[j], o[i]];
+    }
+    return o;
+  }
+
   function renderCard() {
+    $('cardTitle').textContent = current.name || 'BINGO';
+    fillCard($('card'), order);
+  }
+
+  function fillCard(card, ord) {
     const n = current.size;
-    const card = $('card');
     card.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
     card.innerHTML = '';
-    $('cardTitle').textContent = current.name || 'BINGO';
-    const idx = order || current.cells.map((_, i) => i);
+    const idx = ord || current.cells.map((_, i) => i);
     const center = n % 2 === 1 ? Math.floor(n * n / 2) : -1;
     for (let pos = 0; pos < n * n; pos++) {
       const sq = document.createElement('div');
@@ -432,16 +462,40 @@
     setStatus(`Placed ${placed} image${placed === 1 ? '' : 's'}.`);
   });
 
-  $('shuffleBtn').addEventListener('click', () => {
-    order = current.cells.map((_, i) => i);
-    for (let i = order.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [order[i], order[j]] = [order[j], order[i]];
-    }
-    renderCard();
-  });
+  $('shuffleBtn').addEventListener('click', () => { order = shuffledOrder(); renderCard(); });
   $('resetOrderBtn').addEventListener('click', () => { order = null; renderCard(); });
-  $('printBtn').addEventListener('click', () => window.print());
+
+  function buildPrintSheets(count) {
+    const wrap = $('printSheets');
+    wrap.innerHTML = '';
+    const seen = new Set();
+    for (let i = 0; i < count; i++) {
+      // Try a few times for a layout not already used in this batch.
+      let ord = shuffledOrder(), tries = 0;
+      while (seen.has(ord.join(',')) && tries++ < 20) ord = shuffledOrder();
+      seen.add(ord.join(','));
+      const sheet = document.createElement('div');
+      sheet.className = 'sheet';
+      const title = document.createElement('p');
+      title.className = 'btitle';
+      title.textContent = current.name || 'BINGO';
+      const card = document.createElement('div');
+      card.className = 'bcard';
+      fillCard(card, ord);
+      const no = document.createElement('div');
+      no.className = 'cardno';
+      no.textContent = `Card ${i + 1} of ${count}`;
+      sheet.append(title, card, no);
+      wrap.appendChild(sheet);
+    }
+  }
+  $('printBtn').addEventListener('click', () => {
+    const count = Math.min(200, Math.max(1, parseInt($('copies').value, 10) || 1));
+    $('copies').value = count;
+    buildPrintSheets(count);
+    window.print();
+  });
+  window.addEventListener('afterprint', () => { $('printSheets').innerHTML = ''; });
 
   window.addEventListener('beforeunload', e => {
     const saved = sets.find(s => s.id === current.id);
