@@ -280,9 +280,13 @@
           <select id="music">
             <option value="none">None</option>
             <option value="jeopardy.mp3">Jeopardy theme</option>
+            <option value="synth:tick">Ticking clock</option>
+            <option value="synth:heartbeat">Heartbeat (speeds up)</option>
+            <option value="synth:gameshow">Game show tune</option>
             <option value="custom">Custom file…</option>
           </select>
           <input type="text" id="musicFile" placeholder="e.g. song.mp3" hidden>
+          <button type="button" id="previewMusic">Preview</button>
         </div>
         <div class="row"><label><input type="checkbox" id="timerLock"> Cards stay locked until the timer ends</label></div>
         <p class="help">Custom files go in the same folder as this page. Space bar starts and stops the timer.</p>
@@ -551,24 +555,111 @@
 
     // ---------- sounds ----------
     let audioCtx = null;
+    function getCtx() {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+    // A single note at absolute time `at`, optionally sliding to `freqEnd`.
+    function tone(dest, type, freq, at, dur, vol, freqEnd) {
+      const ctx = dest.context;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, at);
+      if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, at + dur);
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(vol, at + 0.015);
+      g.gain.setValueAtTime(vol, at + dur * 0.6);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      o.connect(g); g.connect(dest);
+      o.start(at); o.stop(at + dur + 0.05);
+    }
+    let noiseBuf = null;
+    function noise(dest, at, dur, vol, hz) {
+      const ctx = dest.context;
+      if (!noiseBuf) {
+        noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = noiseBuf;
+      f.type = 'bandpass'; f.frequency.value = hz; f.Q.value = 1.2;
+      g.gain.setValueAtTime(vol, at);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      src.connect(f); f.connect(g); g.connect(dest);
+      src.start(at); src.stop(at + dur + 0.02);
+    }
+    const midi = m => 440 * Math.pow(2, (m - 69) / 12);
+
     function beep(kind) {
       try {
-        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-        const ctx = audioCtx, now = ctx.currentTime;
-        if (ctx.state === 'suspended') ctx.resume();
-        const voice = (type, freq, t0, dur, vol) => {
-          const o = ctx.createOscillator(), g = ctx.createGain();
-          o.type = type; o.frequency.setValueAtTime(freq, now + t0);
-          g.gain.setValueAtTime(0.0001, now + t0);
-          g.gain.exponentialRampToValueAtTime(vol, now + t0 + 0.02);
-          g.gain.setValueAtTime(vol, now + t0 + dur * 0.7);
-          g.gain.exponentialRampToValueAtTime(0.0001, now + t0 + dur);
-          o.connect(g); g.connect(ctx.destination);
-          o.start(now + t0); o.stop(now + t0 + dur + 0.05);
-        };
-        if (kind === 'buzzer') { voice('sawtooth', 140, 0, 0.9, 0.35); voice('square', 92, 0, 0.9, 0.25); }
-        else if (kind === 'chime') { voice('sine', 880, 0, 0.9, 0.3); voice('sine', 1174.7, 0.18, 0.9, 0.3); voice('sine', 1568, 0.36, 1.1, 0.3); }
+        const ctx = getCtx(), now = ctx.currentTime, out = ctx.destination;
+        if (kind === 'buzzer') { tone(out, 'sawtooth', 140, now, 0.9, 0.35); tone(out, 'square', 92, now, 0.9, 0.25); }
+        else if (kind === 'chime') { tone(out, 'sine', 880, now, 0.9, 0.3); tone(out, 'sine', 1174.7, now + 0.18, 0.9, 0.3); tone(out, 'sine', 1568, now + 0.36, 1.1, 0.3); }
       } catch {}
+    }
+
+    // Generated walking music. Each pattern schedules one step at time `t` and
+    // returns the seconds until the next step. `progress` runs 0 → 1 over the countdown.
+    const GAMESHOW_LEAD = [72, 76, 79, 84, 79, 76, 72, 0, 74, 77, 81, 86, 81, 77, 74, 0, 76, 79, 83, 88, 83, 79, 76, 0, 77, 81, 84, 89, 84, 79, 76, 0];
+    const GAMESHOW_BASS = [48, 0, 0, 0, 55, 0, 0, 0, 50, 0, 0, 0, 57, 0, 0, 0, 52, 0, 0, 0, 59, 0, 0, 0, 53, 0, 0, 0, 55, 0, 0, 0];
+    const PATTERNS = {
+      tick(out, t, step, progress, remaining) {
+        const urgent = remaining <= 3;
+        const hi = step % 2 === 0;
+        noise(out, t, 0.04, urgent ? 0.7 : 0.5, hi ? 3200 : 2200);
+        tone(out, 'square', hi ? 1500 : 1000, t, 0.03, urgent ? 0.16 : 0.1);
+        return urgent ? 0.25 : 0.5;
+      },
+      heartbeat(out, t, step, progress) {
+        tone(out, 'sine', 70, t, 0.16, 0.55, 42);           // lub
+        tone(out, 'sine', 62, t + 0.19, 0.14, 0.38, 40);    // dub
+        return 1.05 - 0.65 * progress;                       // 1.05s apart → 0.4s apart
+      },
+      gameshow(out, t, step) {
+        const i = step % GAMESHOW_LEAD.length;
+        if (GAMESHOW_LEAD[i]) tone(out, 'square', midi(GAMESHOW_LEAD[i]), t, 0.13, 0.08);
+        if (GAMESHOW_BASS[i]) tone(out, 'triangle', midi(GAMESHOW_BASS[i]), t, 0.3, 0.22);
+        if (i % 4 === 2) noise(out, t, 0.05, 0.15, 6000);  // light hi-hat
+        return 0.15;
+      },
+    };
+    const synth = { id: null, master: null, kind: null, start: 0, total: 0, next: 0, step: 0 };
+    function startSynthMusic(kind, total) {
+      stopSynthMusic();
+      try {
+        const ctx = getCtx();
+        synth.master = ctx.createGain();
+        synth.master.gain.value = 1;
+        synth.master.connect(ctx.destination);
+        synth.kind = kind; synth.total = Math.max(1, total);
+        synth.start = synth.next = ctx.currentTime + 0.05; synth.step = 0;
+        scheduleSynth();
+        synth.id = setInterval(scheduleSynth, 60);
+      } catch {}
+    }
+    function scheduleSynth() {
+      const ctx = audioCtx, out = synth.master;
+      if (!ctx || !out) return;
+      while (synth.next < ctx.currentTime + 0.25) {
+        const elapsed = synth.next - synth.start;
+        const remaining = synth.total - elapsed;
+        const progress = Math.min(1, Math.max(0, elapsed / synth.total));
+        const dt = PATTERNS[synth.kind](out, synth.next, synth.step, progress, remaining);
+        synth.next += Math.max(0.05, dt);
+        synth.step++;
+      }
+    }
+    function stopSynthMusic() {
+      clearInterval(synth.id); synth.id = null;
+      const m = synth.master; synth.master = null;
+      if (m) {
+        try {
+          m.gain.setTargetAtTime(0, m.context.currentTime, 0.02);
+          setTimeout(() => { try { m.disconnect(); } catch {} }, 200);
+        } catch {}
+      }
     }
 
     function playEndSound(cfg = state.timer) {
@@ -582,11 +673,13 @@
     }
 
     function musicSrc(cfg = state.timer) {
-      if (cfg.music === 'none') return '';
+      if (cfg.music === 'none' || cfg.music.startsWith('synth:')) return '';
       return cfg.music === 'custom' ? cfg.musicFile : cfg.music;
     }
-    function startMusic() {
-      const src = musicSrc();
+    function startMusic(cfg = state.timer, total = cfg.seconds) {
+      stopMusic();
+      if (cfg.music.startsWith('synth:')) { startSynthMusic(cfg.music.slice(6), total); return; }
+      const src = musicSrc(cfg);
       if (!src) return;
       try {
         if (musicEl.getAttribute('src') !== src) musicEl.src = src;
@@ -594,7 +687,17 @@
         musicEl.play().catch(() => {});
       } catch {}
     }
-    function stopMusic() { try { musicEl.pause(); } catch {} }
+    function stopMusic() {
+      stopSynthMusic();
+      try { musicEl.pause(); } catch {}
+    }
+    let previewId = null;
+    function previewMusic(cfg) {
+      clearTimeout(previewId);
+      const secs = Math.min(6, cfg.seconds || 6);
+      startMusic(cfg, secs);
+      previewId = setTimeout(stopMusic, secs * 1000);
+    }
 
     // Reset requires two clicks within a few seconds so a stray click can't wipe the game.
     const resetBtn = document.getElementById('resetBtn');
@@ -681,6 +784,7 @@
     timerFields.endSound.addEventListener('change', syncTimerUI);
     timerFields.music.addEventListener('change', syncTimerUI);
     document.getElementById('previewEnd').addEventListener('click', () => playEndSound(readTimerFields()));
+    document.getElementById('previewMusic').addEventListener('click', () => previewMusic(readTimerFields()));
 
     function openSetup() {
       stopTimer();
@@ -696,7 +800,7 @@
       setup.hidden = false;
       document.getElementById('name0').focus();
     }
-    function closeSetup() { setup.hidden = true; }
+    function closeSetup() { setup.hidden = true; clearTimeout(previewId); stopMusic(); }
 
     function currentPreset() { return document.querySelector('input[name=preset]:checked').value; }
     function draftTeamNames() {
