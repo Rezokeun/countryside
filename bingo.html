@@ -90,7 +90,10 @@
 
   /* Print sheets: one shuffled card per page. Kept offscreen at print width so text can be fitted. */
   #printSheets { position: absolute; left: -20000px; top: 0; width: 180mm; visibility: hidden; }
-  .sheet .bcard { max-width: 100%; width: 180mm; background: #000; }
+  /* Printed cards use real borders for the grid: backgrounds are often dropped by print dialogs. */
+  .sheet .bcard { max-width: 100%; width: 180mm; background: none; gap: 0; padding: 0; border: 2px solid #000; border-radius: 0; }
+  .sheet .sq { border: 1px solid #000; border-radius: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet .sq.free { background: #ffe58a; outline: 3px dashed #000; outline-offset: -8px; }
 
   @media (max-width: 1100px) { main { grid-template-columns: 240px 1fr; } #previewSec { grid-column: 1 / -1; } }
   @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
@@ -103,7 +106,6 @@
     .sheet { page-break-after: always; break-after: page; display: flex; flex-direction: column; align-items: center; }
     .sheet:last-child { page-break-after: auto; break-after: auto; }
     .sheet .btitle { font-size: 2rem; margin-bottom: 14px; }
-    .sheet .sq { border-radius: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .sheet .cardno { margin-top: 8px; color: #666; font-size: 10pt; }
   }
 </style>
