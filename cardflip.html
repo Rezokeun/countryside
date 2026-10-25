@@ -89,7 +89,25 @@
     @keyframes rise { 0%{opacity:0; transform:translateY(10px)} 20%{opacity:1} 100%{opacity:0; transform:translateY(-30px)} }
 
     /* ---------- cards ---------- */
-    main { flex: 1; display: flex; flex-direction: column; padding: 12px 16px 16px; gap: 12px; }
+    main { flex: 1; display: flex; flex-direction: column; padding: 12px 16px 16px; gap: 12px; position: relative; }
+    #countdown {
+      position: absolute; inset: 12px 16px 60px; z-index: 5; pointer-events: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.35); border-radius: 18px;
+    }
+    #countdown.done { background: rgba(0,0,0,.6); }
+    #countdown[hidden] { display: none; }
+    #countdown .num {
+      font-size: clamp(6rem, 42vh, 30rem); font-weight: 800; line-height: 1; color: #fff;
+      text-shadow: 0 0 10px rgba(0,0,0,.9), 0 6px 30px rgba(0,0,0,.7);
+    }
+    #countdown .label { font-size: clamp(1.1rem, 3vw, 2.2rem); font-weight: 700; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.9); margin-top: 8px; }
+    #countdown.urgent .num { color: #ff6b5e; animation: tick .5s ease; }
+    @keyframes tick { 0%{transform:scale(1.15)} 100%{transform:scale(1)} }
+    #countdown.done .num { font-size: clamp(2.5rem, 12vw, 8rem); animation: tick .5s ease; }
+    .card.locked .back .hint { color: #ffd166; opacity: 1; }
+    #timerBtn { font-size: 1.1rem; padding: 10px 22px; }
+    #timerBtn.running { background: #d93025; color: #fff; border-color: #d93025; }
     #cards {
       flex: 1; display: grid; gap: 16px;
       grid-template-columns: repeat(var(--n, 2), 1fr);
@@ -151,11 +169,15 @@
     .panel h3 { margin: 18px 0 8px; font-size: .95rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
     .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     .row + .row { margin-top: 8px; }
-    input[type=text], select {
+    input[type=text], input[type=number], select {
       font: inherit; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px;
       background: var(--bg); color: var(--text);
     }
     input[type=text] { flex: 1; min-width: 120px; }
+    input[type=number] { width: 84px; }
+    .row > span.k { min-width: 190px; color: var(--muted); }
+    .row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    #timerOpts[hidden], #endSoundFile[hidden], #musicFile[hidden] { display: none; }
     input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); cursor: pointer; }
     .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .presets label {
@@ -193,8 +215,10 @@
 
   <main>
     <div id="cards"></div>
+    <div id="countdown" hidden><div class="num">10</div><div class="label">Get to your spot!</div></div>
     <div id="roundbar">
       <span class="msg" id="msg"></span>
+      <button id="timerBtn" hidden>Start timer</button>
       <button id="nextBtn" class="primary" hidden>Next round</button>
     </div>
   </main>
@@ -231,6 +255,39 @@
         <div id="customRows"></div>
       </div>
       <p class="summary" id="deckSummary"></p>
+
+      <h3>Timer</h3>
+      <div class="row"><label><input type="checkbox" id="timerEnabled"> Count down while kids walk to their letter</label></div>
+      <div id="timerOpts" hidden>
+        <div class="row" style="margin-top:8px">
+          <span class="k">Seconds</span>
+          <input type="number" id="timerSeconds" min="1" max="600" step="1">
+        </div>
+        <div class="row">
+          <span class="k">Sound when time is up</span>
+          <select id="endSound">
+            <option value="buzzer">Buzzer</option>
+            <option value="ding">Ding</option>
+            <option value="chime">Chime</option>
+            <option value="custom">Custom file…</option>
+            <option value="none">None</option>
+          </select>
+          <input type="text" id="endSoundFile" placeholder="e.g. horn.mp3" hidden>
+          <button type="button" id="previewEnd">Preview</button>
+        </div>
+        <div class="row">
+          <span class="k">Music while counting down</span>
+          <select id="music">
+            <option value="none">None</option>
+            <option value="jeopardy.mp3">Jeopardy theme</option>
+            <option value="custom">Custom file…</option>
+          </select>
+          <input type="text" id="musicFile" placeholder="e.g. song.mp3" hidden>
+        </div>
+        <div class="row"><label><input type="checkbox" id="timerLock"> Cards stay locked until the timer ends</label></div>
+        <p class="help">Custom files go in the same folder as this page. Space bar starts and stops the timer.</p>
+      </div>
+
       <p class="help">Cards shuffle every round and go back face down. Have the kids stand by the letter they want, then click that card.</p>
 
       <div class="actions">
@@ -241,6 +298,7 @@
   </div>
 
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
+  <audio id="musicAudio" loop></audio>
 
   <script>
     const KEY = 'cardflip.v1';
@@ -250,7 +308,10 @@
       '4': [{ team: 0, value: 1 }, { team: 0, value: 2 }, { team: 1, value: 1 }, { team: 1, value: 2 }],
     };
 
+    const DEFAULT_TIMER = { enabled: false, seconds: 10, endSound: 'buzzer', endSoundFile: '', music: 'none', musicFile: '', lock: true };
+
     const defaultState = () => ({
+      timer: { ...DEFAULT_TIMER },
       teams: [{ name: 'Red', color: '#d93025' }, { name: 'Blue', color: '#1a73e8' }],
       scores: [0, 0],
       preset: '2',
@@ -270,7 +331,7 @@
         if (!raw) return null;
         const s = JSON.parse(raw);
         if (!s || !Array.isArray(s.teams) || !Array.isArray(s.deck)) return null;
-        return { ...defaultState(), ...s };
+        return { ...defaultState(), ...s, timer: { ...DEFAULT_TIMER, ...(s.timer || {}) } };
       } catch { return null; }
     }
     function save() {
@@ -297,7 +358,10 @@
     const cardsEl = document.getElementById('cards');
     const msgEl = document.getElementById('msg');
     const nextBtn = document.getElementById('nextBtn');
+    const timerBtn = document.getElementById('timerBtn');
+    const countdownEl = document.getElementById('countdown');
     const ding = document.getElementById('ding');
+    const musicEl = document.getElementById('musicAudio');
 
     function renderScoreboard() {
       scoreboard.innerHTML = '';
@@ -356,6 +420,7 @@
       });
       const done = state.flipped !== null;
       nextBtn.hidden = !done;
+      updateTimerUI();
       if (done) {
         const c = state.deck[state.order[state.flipped]];
         msgEl.textContent = `Card ${LETTERS[state.flipped]}: ${state.teams[c.team].name} +${c.value}`;
@@ -369,6 +434,10 @@
     // ---------- game actions ----------
     function flip(pos) {
       if (state.flipped !== null) return;
+      if (timer.running) {
+        if (state.timer.lock) return;
+        stopTimer();
+      }
       state.flipped = pos;
       const c = state.deck[state.order[pos]];
       state.scores[c.team] += c.value;
@@ -391,6 +460,8 @@
         msgEl.textContent = `Card ${LETTERS[pos]}: ${state.teams[c.team].name} +${c.value}`;
       }, 400);
 
+      updateTimerUI();
+
       // Reveal what the other cards would have been.
       setTimeout(() => {
         cardsEl.querySelectorAll('.card').forEach(b => {
@@ -408,7 +479,122 @@
       teamEl.querySelector('.score').textContent = state.scores[team];
     }
 
-    nextBtn.addEventListener('click', () => { newRound(); renderCards(); });
+    nextBtn.addEventListener('click', () => { stopTimer(); newRound(); renderCards(); });
+
+    // ---------- countdown timer ----------
+    const timer = { running: false, remaining: 0, id: null, doneId: null };
+
+    function startTimer() {
+      if (timer.running || !state.timer.enabled || state.flipped !== null) return;
+      clearTimeout(timer.doneId);
+      timer.running = true;
+      timer.remaining = Math.max(1, Math.round(state.timer.seconds) || 10);
+      countdownEl.classList.remove('done');
+      countdownEl.querySelector('.label').textContent = 'Get to your spot!';
+      countdownEl.hidden = false;
+      showRemaining();
+      startMusic();
+      timer.id = setInterval(() => {
+        timer.remaining--;
+        if (timer.remaining <= 0) { finishTimer(); return; }
+        showRemaining();
+      }, 1000);
+      updateTimerUI();
+    }
+
+    function showRemaining() {
+      const num = countdownEl.querySelector('.num');
+      num.textContent = timer.remaining;
+      countdownEl.classList.toggle('urgent', timer.remaining <= 3);
+      // Restart the tick animation each second while urgent.
+      if (timer.remaining <= 3) { num.style.animation = 'none'; void num.offsetWidth; num.style.animation = ''; }
+    }
+
+    function stopTimer() {
+      if (!timer.running) return;
+      clearInterval(timer.id);
+      timer.running = false;
+      stopMusic();
+      countdownEl.hidden = true;
+      countdownEl.classList.remove('urgent');
+      updateTimerUI();
+    }
+
+    function finishTimer() {
+      clearInterval(timer.id);
+      timer.running = false;
+      stopMusic();
+      playEndSound();
+      countdownEl.classList.remove('urgent');
+      countdownEl.classList.add('done');
+      countdownEl.querySelector('.num').textContent = "Time's up!";
+      countdownEl.querySelector('.label').textContent = 'Now flip the card';
+      timer.doneId = setTimeout(() => { countdownEl.hidden = true; countdownEl.classList.remove('done'); }, 1800);
+      updateTimerUI();
+    }
+
+    function updateTimerUI() {
+      const canUse = state.timer.enabled && state.flipped === null;
+      timerBtn.hidden = !canUse;
+      timerBtn.classList.toggle('running', timer.running);
+      timerBtn.textContent = timer.running ? 'Stop timer' : `Start timer (${state.timer.seconds}s)`;
+      const locked = timer.running && state.timer.lock;
+      cardsEl.querySelectorAll('.card').forEach(b => {
+        b.classList.toggle('locked', locked);
+        if (state.flipped === null) b.disabled = locked;
+        const hint = b.querySelector('.back .hint');
+        if (hint) hint.textContent = locked ? 'Wait for the timer' : 'Click to flip';
+      });
+    }
+
+    timerBtn.addEventListener('click', () => { timer.running ? stopTimer() : startTimer(); timerBtn.blur(); });
+
+    // ---------- sounds ----------
+    let audioCtx = null;
+    function beep(kind) {
+      try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = audioCtx, now = ctx.currentTime;
+        if (ctx.state === 'suspended') ctx.resume();
+        const voice = (type, freq, t0, dur, vol) => {
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = type; o.frequency.setValueAtTime(freq, now + t0);
+          g.gain.setValueAtTime(0.0001, now + t0);
+          g.gain.exponentialRampToValueAtTime(vol, now + t0 + 0.02);
+          g.gain.setValueAtTime(vol, now + t0 + dur * 0.7);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + t0 + dur);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(now + t0); o.stop(now + t0 + dur + 0.05);
+        };
+        if (kind === 'buzzer') { voice('sawtooth', 140, 0, 0.9, 0.35); voice('square', 92, 0, 0.9, 0.25); }
+        else if (kind === 'chime') { voice('sine', 880, 0, 0.9, 0.3); voice('sine', 1174.7, 0.18, 0.9, 0.3); voice('sine', 1568, 0.36, 1.1, 0.3); }
+      } catch {}
+    }
+
+    function playEndSound(cfg = state.timer) {
+      if (cfg.endSound === 'none') return;
+      if (cfg.endSound === 'ding') { try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {} return; }
+      if (cfg.endSound === 'custom') {
+        if (cfg.endSoundFile) { try { new Audio(cfg.endSoundFile).play().catch(() => {}); } catch {} }
+        return;
+      }
+      beep(cfg.endSound);
+    }
+
+    function musicSrc(cfg = state.timer) {
+      if (cfg.music === 'none') return '';
+      return cfg.music === 'custom' ? cfg.musicFile : cfg.music;
+    }
+    function startMusic() {
+      const src = musicSrc();
+      if (!src) return;
+      try {
+        if (musicEl.getAttribute('src') !== src) musicEl.src = src;
+        musicEl.currentTime = 0;
+        musicEl.play().catch(() => {});
+      } catch {}
+    }
+    function stopMusic() { try { musicEl.pause(); } catch {} }
 
     // Reset requires two clicks within a few seconds so a stray click can't wipe the game.
     const resetBtn = document.getElementById('resetBtn');
@@ -421,6 +607,7 @@
         return;
       }
       disarmReset();
+      stopTimer();
       state.scores = [0, 0];
       newRound();
       renderAll();
@@ -434,6 +621,12 @@
     // Keyboard: A–D or 1–4 flips a card, N or Enter starts the next round.
     document.addEventListener('keydown', e => {
       if (!setup.hidden || (e.target instanceof Element && e.target.matches('input, select, textarea'))) return;
+      if (e.key === ' ' || e.code === 'Space') {
+        if (e.target instanceof Element && e.target.matches('button')) return; // let the button handle it
+        e.preventDefault();
+        if (timer.running) stopTimer(); else startTimer();
+        return;
+      }
       const k = e.key.toUpperCase();
       let pos = LETTERS.indexOf(k);
       if (pos < 0 && /^[1-4]$/.test(k)) pos = parseInt(k, 10) - 1;
@@ -448,8 +641,49 @@
     const customRows = document.getElementById('customRows');
     const deckSummary = document.getElementById('deckSummary');
     let draftDeck = [];
+    const timerFields = {
+      enabled: document.getElementById('timerEnabled'),
+      seconds: document.getElementById('timerSeconds'),
+      endSound: document.getElementById('endSound'),
+      endSoundFile: document.getElementById('endSoundFile'),
+      music: document.getElementById('music'),
+      musicFile: document.getElementById('musicFile'),
+      lock: document.getElementById('timerLock'),
+    };
+    function fillTimerFields(t) {
+      timerFields.enabled.checked = !!t.enabled;
+      timerFields.seconds.value = t.seconds;
+      timerFields.endSound.value = t.endSound;
+      timerFields.endSoundFile.value = t.endSoundFile || '';
+      timerFields.music.value = t.music;
+      timerFields.musicFile.value = t.musicFile || '';
+      timerFields.lock.checked = !!t.lock;
+      syncTimerUI();
+    }
+    function readTimerFields() {
+      const secs = parseInt(timerFields.seconds.value, 10);
+      return {
+        enabled: timerFields.enabled.checked,
+        seconds: Number.isFinite(secs) && secs > 0 ? Math.min(600, secs) : 10,
+        endSound: timerFields.endSound.value,
+        endSoundFile: timerFields.endSoundFile.value.trim(),
+        music: timerFields.music.value,
+        musicFile: timerFields.musicFile.value.trim(),
+        lock: timerFields.lock.checked,
+      };
+    }
+    function syncTimerUI() {
+      document.getElementById('timerOpts').hidden = !timerFields.enabled.checked;
+      timerFields.endSoundFile.hidden = timerFields.endSound.value !== 'custom';
+      timerFields.musicFile.hidden = timerFields.music.value !== 'custom';
+    }
+    timerFields.enabled.addEventListener('change', syncTimerUI);
+    timerFields.endSound.addEventListener('change', syncTimerUI);
+    timerFields.music.addEventListener('change', syncTimerUI);
+    document.getElementById('previewEnd').addEventListener('click', () => playEndSound(readTimerFields()));
 
     function openSetup() {
+      stopTimer();
       state.teams.forEach((t, i) => {
         document.getElementById('name' + i).value = t.name;
         document.getElementById('color' + i).value = t.color;
@@ -457,6 +691,7 @@
       document.querySelector(`input[name=preset][value="${state.preset}"]`).checked = true;
       draftDeck = state.deck.map(c => ({ ...c }));
       customCount.value = String(draftDeck.length);
+      fillTimerFields(state.timer);
       syncPresetUI();
       setup.hidden = false;
       document.getElementById('name0').focus();
@@ -538,6 +773,7 @@
       state.teams = [0, 1].map(i => ({ name: names[i], color: document.getElementById('color' + i).value }));
       state.preset = currentPreset();
       state.deck = currentDraftDeck().map(c => ({ ...c }));
+      state.timer = readTimerFields();
       firstRun = false;
       newRound();
       renderAll();
