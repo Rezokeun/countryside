@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bingo Card Creator</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1c1e21; --muted: #5f6368;
+    --accent: #3b6ef5; --accent-text: #fff; --border: #d9dde3; --danger: #d64545;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.4;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 1.2rem; margin: 0; }
+  header a { color: var(--accent); text-decoration: none; font-size: .9rem; }
+  main {
+    display: grid; grid-template-columns: 260px 1fr 1fr; gap: 16px;
+    padding: 16px 20px; max-width: 1500px; margin: 0 auto;
+  }
+  section {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+  }
+  h2 { font-size: 1rem; margin: 0 0 12px; }
+  button, .filebtn {
+    font: inherit; font-size: .9rem; padding: 7px 12px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+  }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.danger { color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; }
+  .filebtn { display: inline-block; }
+  .filebtn input { display: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  input[type=text], textarea {
+    font: inherit; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--card); color: var(--text); width: 100%;
+  }
+  textarea { min-height: 80px; resize: vertical; }
+  label.inline { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; }
+  .hint { color: var(--muted); font-size: .82rem; margin: 4px 0 12px; }
+
+  /* Sets list */
+  #setList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  #setList li {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 7px; cursor: pointer;
+  }
+  #setList li.active { border-color: var(--accent); background: #eef3ff; }
+  #setList li .name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #setList li .meta { color: var(--muted); font-size: .8rem; }
+  #setList li button { padding: 2px 7px; font-size: .8rem; }
+
+  /* Cell editor */
+  #cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .cell-edit {
+    border: 1px solid var(--border); border-radius: 7px; padding: 8px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .cell-edit .num { font-size: .75rem; color: var(--muted); }
+  .cell-edit .thumb {
+    height: 70px; border-radius: 5px; background: #eee center/contain no-repeat;
+    display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: .75rem;
+  }
+  .cell-edit .tools { display: flex; gap: 4px; }
+  .cell-edit .tools .filebtn, .cell-edit .tools button { padding: 3px 7px; font-size: .78rem; flex: 1; text-align: center; }
+
+  /* Card preview */
+  #card {
+    display: grid; gap: 4px; background: #222; padding: 4px; border-radius: 6px;
+    aspect-ratio: 1 / 1; width: 100%; max-width: 640px; margin: 0 auto;
+  }
+  #card .sq {
+    background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 4px; overflow: hidden; font-weight: 600; word-break: break-word; border-radius: 3px;
+  }
+  #card .sq img { max-width: 100%; max-height: 100%; object-fit: contain; flex: 1; min-height: 0; }
+  #card .sq .txt { font-size: clamp(.55rem, 1.6vw, 1rem); }
+  #card .sq img + .txt { font-size: clamp(.5rem, 1.1vw, .8rem); margin-top: 2px; }
+  #card .sq.free { background: #ffe58a; }
+  #cardTitle { text-align: center; font-size: 1.4rem; font-weight: 700; margin: 0 0 10px; letter-spacing: .05em; }
+
+  @media (max-width: 1100px) { main { grid-template-columns: 240px 1fr; } #previewSec { grid-column: 1 / -1; } }
+  @media (max-width: 720px) { main { grid-template-columns: 1fr; } }
+
+  @media print {
+    body { background: #fff; }
+    header, #libSec, #editSec, .no-print { display: none !important; }
+    main { display: block; padding: 0; }
+    section { border: none; padding: 0; }
+    #card { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bingo Card Creator</h1>
+  <a href="index.html">← All pages</a>
+</header>
+
+<main>
+  <!-- Library -->
+  <section id="libSec">
+    <h2>Saved sets</h2>
+    <div class="row">
+      <button class="primary" id="newBtn">+ New set</button>
+      <label class="filebtn">Import<input type="file" id="importFile" accept="application/json"></label>
+    </div>
+    <ul id="setList"></ul>
+    <p class="hint" id="libHint">Sets are saved in this browser. Use Export to back one up or move it to another device.</p>
+  </section>
+
+  <!-- Editor -->
+  <section id="editSec">
+    <h2>Edit set</h2>
+    <div class="row">
+      <input type="text" id="setName" placeholder="Set name (e.g. Bible Heroes)">
+    </div>
+    <div class="row">
+      <span>Grid:</span>
+      <label class="inline"><input type="radio" name="size" value="5" checked> 5 × 5 (25)</label>
+      <label class="inline"><input type="radio" name="size" value="6"> 6 × 6 (36)</label>
+      <label class="inline" id="freeWrap"><input type="checkbox" id="freeSpace"> Free center space</label>
+    </div>
+    <div class="row">
+      <button class="primary" id="saveBtn">Save set</button>
+      <button id="exportBtn">Export</button>
+      <button id="clearBtn">Clear all squares</button>
+      <span id="status" class="hint" style="margin:0"></span>
+    </div>
+
+    <details>
+      <summary style="cursor:pointer; font-size:.9rem;">Fill quickly: paste a word list or pick many images</summary>
+      <div style="margin-top:10px">
+        <textarea id="bulkWords" placeholder="One word or phrase per line…"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button id="bulkWordsBtn">Fill squares from list</button>
+          <label class="filebtn">Pick images…<input type="file" id="bulkImages" accept="image/*" multiple></label>
+        </div>
+        <p class="hint">Items fill squares in order, starting from the first empty one.</p>
+      </div>
+    </details>
+
+    <div id="cells" style="margin-top:12px"></div>
+  </section>
+
+  <!-- Preview -->
+  <section id="previewSec">
+    <h2 class="no-print">Card preview</h2>
+    <div class="row no-print">
+      <button id="shuffleBtn">Shuffle card</button>
+      <button id="resetOrderBtn">Original order</button>
+      <button id="printBtn">Print</button>
+    </div>
+    <p id="cardTitle"></p>
+    <div id="card"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const STORE_KEY = 'bingoSets.v1';
+  const $ = id => document.getElementById(id);
+
+  // ---------- state ----------
+  let sets = loadSets();
+  let current = null;        // the set being edited
+  let order = null;          // current shuffled order of cell indexes (null = original)
+
+  function loadSets() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; }
+  }
+  function persistSets() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(sets));
+      return true;
+    } catch (e) {
+      alert('Could not save: browser storage is full. Try fewer or smaller images, or export and delete old sets.');
+      return false;
+    }
+  }
+  function blankSet(size = 5) {
+    return {
+      id: 'set_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: '', size, freeSpace: false,
+      cells: Array.from({ length: size * size }, () => ({ text: '', image: null })),
+      createdAt: Date.now(), updatedAt: Date.now()
+    };
+  }
+  function setStatus(msg) {
+    $('status').textContent = msg;
+    if (msg) setTimeout(() => { if ($('status').textContent === msg) $('status').textContent = ''; }, 2500);
+  }
+
+  // ---------- library ----------
+  function renderLibrary() {
+    const ul = $('setList');
+    ul.innerHTML = '';
+    if (!sets.length) {
+      ul.innerHTML = '<li style="cursor:default;color:var(--muted)">No saved sets yet.</li>';
+      return;
+    }
+    [...sets].sort((a, b) => b.updatedAt - a.updatedAt).forEach(s => {
+      const li = document.createElement('li');
+      if (current && s.id === current.id) li.classList.add('active');
+      const filled = s.cells.filter(c => c.text || c.image).length;
+      li.innerHTML = `<span class="name"></span><span class="meta">${s.size}×${s.size} · ${filled}/${s.cells.length}</span><button class="danger" title="Delete">✕</button>`;
+      li.querySelector('.name').textContent = s.name || '(untitled)';
+      li.addEventListener('click', e => {
+        if (e.target.tagName === 'BUTTON') return;
+        openSet(structuredClone(s));
+      });
+      li.querySelector('button').addEventListener('click', () => {
+        if (!confirm(`Delete "${s.name || 'untitled'}"? This cannot be undone.`)) return;
+        sets = sets.filter(x => x.id !== s.id);
+        persistSets();
+        if (current && current.id === s.id) openSet(blankSet());
+        renderLibrary();
+      });
+      ul.appendChild(li);
+    });
+  }
+
+  // ---------- editor ----------
+  function openSet(s) {
+    current = s;
+    order = null;
+    $('setName').value = s.name;
+    document.querySelector(`input[name=size][value="${s.size}"]`).checked = true;
+    $('freeSpace').checked = !!s.freeSpace;
+    renderCells();
+    renderCard();
+    renderLibrary();
+  }
+
+  function changeSize(n) {
+    if (n === current.size) return;
+    const target = n * n;
+    const filled = current.cells.filter(c => c.text || c.image).length;
+    if (filled > target && !confirm(`Shrinking to ${n}×${n} will drop the last ${filled - target} filled squares. Continue?`)) {
+      document.querySelector(`input[name=size][value="${current.size}"]`).checked = true;
+      return;
+    }
+    const cells = current.cells.slice(0, target);
+    while (cells.length < target) cells.push({ text: '', image: null });
+    current.cells = cells;
+    current.size = n;
+    order = null;
+    renderCells();
+    renderCard();
+  }
+
+  function renderCells() {
+    const wrap = $('cells');
+    wrap.innerHTML = '';
+    $('freeWrap').style.display = current.size === 5 ? '' : 'none';
+    current.cells.forEach((c, i) => {
+      const d = document.createElement('div');
+      d.className = 'cell-edit';
+      d.innerHTML = `
+        <span class="num">Square ${i + 1}</span>
+        <div class="thumb"></div>
+        <input type="text" placeholder="Word or caption">
+        <div class="tools">
+          <label class="filebtn">Image<input type="file" accept="image/*"></label>
+          <button type="button" title="Remove image">✕ img</button>
+        </div>`;
+      const thumb = d.querySelector('.thumb');
+      const input = d.querySelector('input[type=text]');
+      const file = d.querySelector('input[type=file]');
+      const rm = d.querySelector('button');
+      input.value = c.text;
+      updateThumb(thumb, c);
+      input.addEventListener('input', () => { c.text = input.value; renderCard(); });
+      file.addEventListener('change', async () => {
+        if (!file.files[0]) return;
+        c.image = await fileToDataUrl(file.files[0]);
+        file.value = '';
+        updateThumb(thumb, c); renderCard();
+      });
+      rm.addEventListener('click', () => { c.image = null; updateThumb(thumb, c); renderCard(); });
+      wrap.appendChild(d);
+    });
+  }
+  function updateThumb(el, c) {
+    el.style.backgroundImage = c.image ? `url(${c.image})` : '';
+    el.textContent = c.image ? '' : 'no image';
+  }
+
+  // Resize images so a full set fits comfortably in browser storage.
+  function fileToDataUrl(file, max = 320) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * scale);
+        cv.height = Math.round(img.height * scale);
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Not an image')); };
+      img.src = url;
+    });
+  }
+
+  function firstEmptyIndex(from = 0) {
+    for (let i = from; i < current.cells.length; i++) {
+      const c = current.cells[i];
+      if (!c.text && !c.image) return i;
+    }
+    return -1;
+  }
+
+  // ---------- card preview ----------
+  function renderCard() {
+    const n = current.size;
+    const card = $('card');
+    card.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+    card.innerHTML = '';
+    $('cardTitle').textContent = current.name || 'BINGO';
+    const idx = order || current.cells.map((_, i) => i);
+    const center = n % 2 === 1 ? Math.floor(n * n / 2) : -1;
+    for (let pos = 0; pos < n * n; pos++) {
+      const sq = document.createElement('div');
+      sq.className = 'sq';
+      if (current.freeSpace && pos === center) {
+        sq.classList.add('free');
+        sq.innerHTML = '<span class="txt">FREE</span>';
+      } else {
+        const c = current.cells[idx[pos]];
+        if (c.image) { const im = document.createElement('img'); im.src = c.image; sq.appendChild(im); }
+        if (c.text) { const t = document.createElement('span'); t.className = 'txt'; t.textContent = c.text; sq.appendChild(t); }
+      }
+      card.appendChild(sq);
+    }
+  }
+
+  // ---------- wiring ----------
+  $('newBtn').addEventListener('click', () => openSet(blankSet()));
+
+  $('setName').addEventListener('input', () => { current.name = $('setName').value; renderCard(); });
+  document.querySelectorAll('input[name=size]').forEach(r =>
+    r.addEventListener('change', () => changeSize(+r.value)));
+  $('freeSpace').addEventListener('change', () => { current.freeSpace = $('freeSpace').checked; renderCard(); });
+
+  $('saveBtn').addEventListener('click', () => {
+    if (!current.name.trim()) { $('setName').focus(); setStatus('Give the set a name first.'); return; }
+    current.updatedAt = Date.now();
+    const i = sets.findIndex(s => s.id === current.id);
+    const snapshot = structuredClone(current);
+    if (i >= 0) sets[i] = snapshot; else sets.push(snapshot);
+    if (persistSets()) { setStatus('Saved ✓'); renderLibrary(); }
+  });
+
+  $('clearBtn').addEventListener('click', () => {
+    if (!confirm('Clear every square in this set?')) return;
+    current.cells.forEach(c => { c.text = ''; c.image = null; });
+    order = null;
+    renderCells(); renderCard();
+  });
+
+  $('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(current, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (current.name || 'bingo-set').replace(/[^\w\- ]+/g, '').trim() + '.bingo.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  $('importFile').addEventListener('change', async () => {
+    const f = $('importFile').files[0];
+    $('importFile').value = '';
+    if (!f) return;
+    try {
+      const s = JSON.parse(await f.text());
+      if (!s || ![5, 6].includes(s.size) || !Array.isArray(s.cells) || s.cells.length !== s.size * s.size)
+        throw new Error('bad shape');
+      s.id = blankSet().id;        // avoid clobbering an existing set
+      s.updatedAt = Date.now();
+      s.cells = s.cells.map(c => ({ text: String(c.text || ''), image: typeof c.image === 'string' ? c.image : null }));
+      sets.push(s);
+      if (persistSets()) { openSet(structuredClone(s)); setStatus('Imported ✓'); }
+    } catch {
+      alert('That file is not a valid bingo set.');
+    }
+  });
+
+  $('bulkWordsBtn').addEventListener('click', () => {
+    const words = $('bulkWords').value.split('\n').map(w => w.trim()).filter(Boolean);
+    let i = firstEmptyIndex();
+    let placed = 0;
+    for (const w of words) {
+      if (i < 0) break;
+      current.cells[i].text = w; placed++;
+      i = firstEmptyIndex(i + 1);
+    }
+    $('bulkWords').value = '';
+    renderCells(); renderCard();
+    setStatus(`Placed ${placed} word${placed === 1 ? '' : 's'}.`);
+  });
+
+  $('bulkImages').addEventListener('change', async () => {
+    const files = [...$('bulkImages').files];
+    $('bulkImages').value = '';
+    let i = firstEmptyIndex();
+    let placed = 0;
+    for (const f of files) {
+      if (i < 0) break;
+      try {
+        current.cells[i].image = await fileToDataUrl(f);
+        current.cells[i].text = current.cells[i].text || f.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+        placed++;
+        i = firstEmptyIndex(i + 1);
+      } catch { /* skip non-images */ }
+    }
+    renderCells(); renderCard();
+    setStatus(`Placed ${placed} image${placed === 1 ? '' : 's'}.`);
+  });
+
+  $('shuffleBtn').addEventListener('click', () => {
+    order = current.cells.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    renderCard();
+  });
+  $('resetOrderBtn').addEventListener('click', () => { order = null; renderCard(); });
+  $('printBtn').addEventListener('click', () => window.print());
+
+  window.addEventListener('beforeunload', e => {
+    const saved = sets.find(s => s.id === current.id);
+    const dirty = !saved || JSON.stringify(saved) !== JSON.stringify({ ...current, updatedAt: saved.updatedAt });
+    const hasContent = current.cells.some(c => c.text || c.image) || current.name;
+    if (dirty && hasContent) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  // ---------- boot ----------
+  openSet(sets.length ? structuredClone([...sets].sort((a, b) => b.updatedAt - a.updatedAt)[0]) : blankSet());
+})();
+</script>
+</body>
+</html>
