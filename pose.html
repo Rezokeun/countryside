@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strike a Pose Review Game</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #1c1e21;
+      --muted: #5f6368;
+      --accent: #3b6ef5;
+      --border: #e1e4e8;
+      --back: #2b2f36;
+      --back-text: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121417;
+        --card: #1c1f24;
+        --text: #e8eaed;
+        --muted: #9aa0a6;
+        --accent: #7aa2ff;
+        --border: #2b2f36;
+        --back: #3a3f48;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ---------- top bar ---------- */
+    header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px;
+      background: var(--card); border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 1.1rem; margin: 0; flex: 1; }
+    header a { color: var(--muted); text-decoration: none; font-size: .9rem; }
+    header a:hover { color: var(--accent); }
+    button {
+      font: inherit; font-size: .9rem; padding: 7px 12px; border-radius: 7px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button:disabled { opacity: .5; cursor: default; }
+
+    /* ---------- cards ---------- */
+    main { flex: 1; display: flex; flex-direction: column; padding: 12px 16px 16px; gap: 12px; position: relative; }
+    #countdown {
+      position: absolute; inset: 12px 16px 60px; z-index: 5; pointer-events: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.35); border-radius: 18px;
+    }
+    #countdown.done { background: rgba(0,0,0,.6); }
+    #countdown .box {
+      display: flex; flex-direction: column; align-items: center;
+      background: rgba(0,0,0,.88); border: 3px solid rgba(255,255,255,.25); border-radius: 28px;
+      padding: 1vh 6vw 2.5vh; min-width: 36vw; box-shadow: 0 12px 48px rgba(0,0,0,.6);
+    }
+    #countdown[hidden] { display: none; }
+    #countdown .num {
+      font-size: clamp(6rem, 42vh, 30rem); font-weight: 800; line-height: 1; color: #fff;
+      text-shadow: 0 0 10px rgba(0,0,0,.9), 0 6px 30px rgba(0,0,0,.7);
+    }
+    #countdown .label { font-size: clamp(1.1rem, 3vw, 2.2rem); font-weight: 700; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.9); margin-top: 8px; }
+    #countdown.urgent .num { color: #ff6b5e; animation: tick .5s ease; }
+    @keyframes tick { 0%{transform:scale(1.15)} 100%{transform:scale(1)} }
+    #countdown.done .num { font-size: clamp(2.5rem, 12vw, 8rem); animation: tick .5s ease; }
+    .card.locked .back .hint { color: #ffd166; opacity: 1; }
+    .card.locked .back.light .hint { color: #7a3e00; }
+    #timerBtn { font-size: 1.1rem; padding: 10px 22px; }
+    #timerBtn.running { background: #d93025; color: #fff; border-color: #d93025; }
+    #cards {
+      flex: 1; display: grid; gap: 16px;
+      grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr));
+      min-height: 46vh;
+    }
+    .card {
+      perspective: 1200px; cursor: pointer; border: none; background: none; padding: 0;
+      border-radius: 18px; min-width: 0;
+    }
+    .card:disabled { cursor: default; opacity: 1; }
+    .card .inner {
+      position: relative; width: 100%; height: 100%;
+      transform-style: preserve-3d; transition: transform .7s cubic-bezier(.2,.7,.2,1);
+      border-radius: 18px;
+    }
+    .card.flipped .inner { transform: rotateY(180deg); }
+    .card .face {
+      position: absolute; inset: 0; border-radius: 18px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+      box-shadow: 0 6px 18px rgba(0,0,0,.18);
+    }
+    .card .back {
+      background: var(--back); color: var(--back-text);
+      background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 12px, transparent 12px 24px);
+      border: 4px solid rgba(255,255,255,.35);
+      padding: 4% 6%;
+    }
+    .card .back.light { color: #1c1e21; background-image: repeating-linear-gradient(45deg, rgba(0,0,0,.05) 0 12px, transparent 12px 24px); border-color: rgba(0,0,0,.15); }
+    /* The stick figure fills whatever height is left after the name and hint. */
+    .card .back .figure { flex: 1; min-height: 0; width: 100%; position: relative; }
+    .card .back .figure svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 3px 6px rgba(0,0,0,.3)); }
+    .card .back.light .figure svg { filter: none; }
+    /* Sized from the card width so names like "Airplane" fit on one line. */
+    .card .back .sname {
+      font-size: min(10vh, calc((100vw - 32px - 16px * (var(--n, 2) - 1)) / var(--n, 2) / 6.5));
+      font-weight: 800; line-height: 1.1; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+      text-transform: uppercase; letter-spacing: .02em; text-shadow: 0 3px 8px rgba(0,0,0,.35); margin-top: 2%;
+    }
+    .card .back.light .sname { text-shadow: none; }
+    .card .back .sname.big { font-size: min(16vh, calc((100vw - 32px - 16px * (var(--n, 2) - 1)) / var(--n, 2) / 4.5)); white-space: normal; text-align: center; line-height: 1.05; }
+    .card .back .hint { font-size: clamp(.8rem, 1.6vw, 1.1rem); opacity: .75; margin-top: 8px; }
+    .card .front {
+      transform: rotateY(180deg); color: #fff;
+      border: 4px solid rgba(255,255,255,.5);
+    }
+    .card .front.light { color: #1c1e21; border-color: rgba(0,0,0,.15); }
+    .card .front.light .pts, .card .front.light .who, .card .front.light .which { text-shadow: none; }
+    .card .front .pts { font-size: clamp(3.5rem, 16vh, 12rem); font-weight: 800; line-height: 1; text-shadow: 0 3px 6px rgba(0,0,0,.35); }
+    .card .front .who { font-size: clamp(1rem, 3vw, 2rem); font-weight: 700; margin-top: 6px; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
+    .card .front .which {
+      display: flex; align-items: center; gap: 8px; margin-top: 14px; opacity: .85;
+      font-size: clamp(.9rem, 2.2vw, 1.4rem); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+      text-shadow: 0 1px 3px rgba(0,0,0,.35);
+    }
+    .card .front .which svg { height: clamp(1.6rem, 6vh, 3.5rem); width: auto; }
+    .card:not(.flipped):not(:disabled):hover .inner { transform: translateY(-4px); }
+
+    #roundbar { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 44px; flex-wrap: wrap; }
+    #roundbar .msg { color: var(--muted); font-size: .95rem; text-align: center; }
+    #nextBtn, #flipAllBtn { font-size: 1.1rem; padding: 10px 22px; }
+
+    /* ---------- setup overlay ---------- */
+    #setup {
+      position: fixed; inset: 0; background: rgba(0,0,0,.55);
+      display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 20;
+    }
+    #setup[hidden] { display: none; }
+    .panel {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      width: 100%; max-width: 560px; max-height: 92vh; overflow: auto;
+      padding: 20px;
+    }
+    .panel h2 { margin: 0 0 14px; font-size: 1.25rem; }
+    .panel h3 { margin: 18px 0 8px; font-size: .95rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .row + .row { margin-top: 8px; }
+    input[type=text], input[type=number], select {
+      font: inherit; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px;
+      background: var(--bg); color: var(--text);
+    }
+    input[type=text] { flex: 1; min-width: 120px; }
+    input[type=number] { width: 84px; }
+    .row > span.k { min-width: 190px; color: var(--muted); }
+    .row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    #timerOpts[hidden] { display: none; }
+    .presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .presets label {
+      border: 1px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; text-align: center;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .presets label:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+    .presets label input { display: none; }
+    .presets strong { font-size: .95rem; }
+    .presets small { color: var(--muted); font-size: .8rem; }
+    /* Shape picker: a tile per shape with its stick figure. */
+    #shapeGrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+    .tile {
+      position: relative; border: 1px solid var(--border); border-radius: 10px; padding: 8px 6px 6px; cursor: pointer; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted);
+    }
+    .tile svg { height: 56px; width: auto; }
+    .tile .tname { font-size: .8rem; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tile .initial { height: 56px; display: flex; align-items: center; font-size: 2rem; font-weight: 800; }
+    .tile input { display: none; }
+    .tile:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); color: var(--text); }
+    .tile .remove {
+      position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; padding: 0; border-radius: 50%;
+      font-size: .8rem; line-height: 1; background: var(--card);
+    }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chips label {
+      border: 1px solid var(--border); border-radius: 999px; padding: 6px 16px; cursor: pointer; font-weight: 700; color: var(--muted);
+    }
+    .chips label input { display: none; }
+    .chips label:has(input:checked) { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .summary { color: var(--muted); font-size: .9rem; margin-top: 10px; }
+    .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .help { color: var(--muted); font-size: .85rem; margin: 6px 0 0; line-height: 1.4; }
+    .warn { color: #d93025; }
+
+    @media (max-width: 600px) {
+      #cards { grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 0; }
+      .card { aspect-ratio: 3 / 4; }
+      .presets { grid-template-columns: repeat(2, 1fr); }
+      #shapeGrid { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Strike a Pose</h1>
+    <a href="index.html">All pages</a>
+    <button id="setupBtn">Setup</button>
+    <button id="redealBtn" title="Deal a different set of shapes without flipping">New shapes</button>
+  </header>
+
+  <main>
+    <div id="cards"></div>
+    <div id="countdown" hidden><div class="box"><div class="num">10</div><div class="label">Strike your pose!</div></div></div>
+    <div id="roundbar">
+      <span class="msg" id="msg"></span>
+      <button id="flipAllBtn" hidden title="Reveal every card at once (F)">Flip all</button>
+      <button id="timerBtn" hidden>Start timer</button>
+      <button id="nextBtn" class="primary" hidden>Next round</button>
+    </div>
+  </main>
+
+  <div id="setup" hidden>
+    <div class="panel">
+      <h2>Game setup</h2>
+
+      <h3>Shapes</h3>
+      <div id="shapeGrid"></div>
+      <div class="row" style="margin-top:10px">
+        <input type="text" id="customName" placeholder="Add your own shape (name)" maxlength="20">
+        <button type="button" id="addCustom">Add</button>
+      </div>
+      <p class="help">Tick the shapes kids may be asked to do. Each round deals a random set from the ticked shapes. Your own shapes show their name instead of a drawing.</p>
+
+      <h3>Cards each round</h3>
+      <div class="presets" id="countPresets">
+        <label><input type="radio" name="count" value="1"><strong>1 card</strong><small>Do it or don't</small></label>
+        <label><input type="radio" name="count" value="2"><strong>2 cards</strong><small>Pick one of two</small></label>
+        <label><input type="radio" name="count" value="3"><strong>3 cards</strong></label>
+        <label><input type="radio" name="count" value="4"><strong>4 cards</strong></label>
+      </div>
+
+      <h3>Points</h3>
+      <div class="chips" id="valueChips">
+        <label><input type="checkbox" value="0">0</label>
+        <label><input type="checkbox" value="1">1</label>
+        <label><input type="checkbox" value="2">2</label>
+        <label><input type="checkbox" value="3">3</label>
+        <label><input type="checkbox" value="4">4</label>
+        <label><input type="checkbox" value="5">5</label>
+      </div>
+      <div class="row" style="margin-top:10px"><label><input type="checkbox" id="spread"> Give each shape a different value when possible</label></div>
+      <p class="help">Every card draws its points at random from the ticked values, so a shape that was worth 2 one round can be worth 0 the next.</p>
+      <p class="summary" id="summary"></p>
+
+      <h3>Card backs</h3>
+      <div class="row">
+        <label><input type="radio" name="backs" value="colors"> Colors</label>
+        <label><input type="radio" name="backs" value="gray"> Gray</label>
+      </div>
+
+      <h3>Sounds</h3>
+      <div class="row"><label><input type="checkbox" id="flipSound"> Play a ding when a card is flipped</label></div>
+
+      <h3>Timer</h3>
+      <div class="row"><label><input type="checkbox" id="timerEnabled"> Count down while kids get into their shape</label></div>
+      <div id="timerOpts" hidden>
+        <div class="row" style="margin-top:8px">
+          <span class="k">Seconds</span>
+          <input type="number" id="timerSeconds" min="1" max="600" step="1">
+        </div>
+        <div class="row">
+          <span class="k">Sound when time is up</span>
+          <select id="endSound">
+            <option value="buzzer">Buzzer</option>
+            <option value="ding">Ding</option>
+            <option value="chime">Chime</option>
+            <option value="none">None</option>
+          </select>
+          <button type="button" id="previewEnd">Preview</button>
+        </div>
+        <div class="row">
+          <span class="k">Music while counting down</span>
+          <select id="music">
+            <option value="none">None</option>
+            <option value="jeopardy.mp3">Jeopardy theme</option>
+            <option value="synth:tick">Ticking clock</option>
+            <option value="synth:heartbeat">Heartbeat (speeds up)</option>
+            <option value="synth:gameshow">Game show tune</option>
+          </select>
+          <button type="button" id="previewMusic">Preview</button>
+        </div>
+        <div class="row"><label><input type="checkbox" id="timerLock"> Cards stay locked until the timer ends</label></div>
+        <p class="help">During the game, press the space bar to start or stop the timer.</p>
+      </div>
+
+      <p class="help">Each round shows a new set of shapes. Ask a question, have the kids make the shape they want and hold it, then flip the cards to see what each shape was worth.</p>
+
+      <div class="actions">
+        <button id="cancelSetup">Cancel</button>
+        <button id="applySetup" class="primary">Save &amp; start round</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="ding" src="ding.mp3" preload="auto"></audio>
+  <audio id="musicAudio" loop></audio>
+
+  <script>
+    const KEY = 'pose.v1';
+
+    // Built-in body shapes. Each is drawn as a stick figure in a 100-wide box (y from -6 to 120):
+    // `head` is [cx, cy] and `lines` are SVG path strings for body, arms and legs.
+    const SHAPES = [
+      { id: 'pencil',   name: 'Pencil',   head: [50, 16], lines: ['M50,25 L50,66', 'M43,32 L33,-3', 'M57,32 L67,-3', 'M50,66 L46,114', 'M50,66 L54,114'] },
+      { id: 't',        name: 'T',        head: [50, 16], lines: ['M50,25 L50,66', 'M50,32 L8,32', 'M50,32 L92,32', 'M50,66 L45,114', 'M50,66 L55,114'] },
+      { id: 'x',        name: 'X',        head: [50, 16], lines: ['M50,25 L50,66', 'M50,32 L14,4', 'M50,32 L86,4', 'M50,66 L20,114', 'M50,66 L80,114'] },
+      { id: 'y',        name: 'Y',        head: [50, 16], lines: ['M50,25 L50,66', 'M50,32 L24,2', 'M50,32 L76,2', 'M50,66 L45,114', 'M50,66 L55,114'] },
+      { id: 'l',        name: 'L',        head: [50, 16], lines: ['M50,25 L50,66', 'M43,32 L33,-3', 'M50,32 L94,32', 'M50,66 L45,114', 'M50,66 L55,114'] },
+      { id: 'ball',     name: 'Ball',     head: [40, 48], lines: ['M58,52 A30,30 0 1 1 24,64', 'M50,58 C44,66 36,70 28,76'] },
+      { id: 'tree',     name: 'Tree',     head: [50, 16], lines: ['M50,25 L50,66', 'M50,32 L26,6', 'M50,32 L74,6', 'M50,66 L50,114', 'M50,66 L72,80 L52,88'] },
+      { id: 'airplane', name: 'Airplane', head: [24, 34], lines: ['M32,40 L64,64', 'M10,62 L86,36', 'M64,64 L62,114', 'M64,64 L100,50'] },
+      { id: 'chair',    name: 'Chair',    head: [40, 16], lines: ['M40,25 L40,62', 'M40,34 L84,34', 'M40,37 L82,42', 'M40,62 L74,62 L74,114', 'M40,62 L70,67 L70,114'] },
+      { id: 'hero',     name: 'Hero',     head: [50, 16], lines: ['M50,25 L50,66', 'M50,32 L72,4', 'M50,32 L30,52 L46,62', 'M50,66 L34,114', 'M50,66 L66,114'] },
+    ];
+    const SHAPE_BY_ID = Object.fromEntries(SHAPES.map(s => [s.id, s]));
+    const DEFAULT_ENABLED = SHAPES.map(s => s.id);
+    const MAX_CARDS = 4;
+    const MAX_CUSTOM = 12;
+
+    // Card position colors, same palette as the card flip game. `light` backgrounds get dark text.
+    const CARD_COLORS = [
+      { name: 'Yellow', hex: '#f9c80e', light: true },
+      { name: 'Blue',   hex: '#1a73e8' },
+      { name: 'Red',    hex: '#d93025' },
+      { name: 'Green',  hex: '#2e9e44' },
+    ];
+    const BACK_STYLES = ['colors', 'gray'];
+    const ALL_VALUES = [0, 1, 2, 3, 4, 5];
+    const DEFAULT_VALUES = [0, 1, 2];
+
+    const DEFAULT_TIMER = { enabled: false, seconds: 10, endSound: 'buzzer', music: 'none', lock: true };
+    const END_SOUNDS = ['buzzer', 'ding', 'chime', 'none'];
+    const MUSIC = ['none', 'jeopardy.mp3', 'synth:tick', 'synth:heartbeat', 'synth:gameshow'];
+
+    const defaultState = () => ({
+      timer: { ...DEFAULT_TIMER },
+      enabled: DEFAULT_ENABLED.slice(),  // shape ids (built-in or custom) that may be dealt
+      custom: [],                        // { id, name } shapes the teacher typed in
+      count: 4,                          // cards per round
+      values: DEFAULT_VALUES.slice(),    // possible point values
+      spread: false,                     // avoid giving two cards the same value
+      backs: 'colors',                   // 'colors' or 'gray'
+      flipSound: true,
+      round: [],                         // [{ shape, value }] for the current round
+      flipped: [],                       // one boolean per card
+    });
+
+    let state = load();
+    let firstRun = !state;
+    if (!state) state = defaultState();
+    if (!state.round.length) newRound(false);
+
+    function cleanCustom(list) {
+      const out = [];
+      if (!Array.isArray(list)) return out;
+      list.forEach(c => {
+        const name = c && typeof c.name === 'string' ? c.name.trim().slice(0, 20) : '';
+        if (name && out.length < MAX_CUSTOM) out.push({ id: typeof c.id === 'string' && c.id.startsWith('c:') ? c.id : newCustomId(), name });
+      });
+      return out;
+    }
+    function cleanEnabled(list, custom) {
+      const known = new Set([...DEFAULT_ENABLED, ...custom.map(c => c.id)]);
+      const out = Array.isArray(list) ? list.filter(id => known.has(id)) : [];
+      return out.length ? [...new Set(out)] : DEFAULT_ENABLED.slice();
+    }
+    function cleanValues(list) {
+      const out = Array.isArray(list) ? [...new Set(list.filter(v => ALL_VALUES.includes(v)))].sort((a, b) => a - b) : [];
+      return out.length ? out : DEFAULT_VALUES.slice();
+    }
+    function cleanCount(n) {
+      n = parseInt(n, 10);
+      return Number.isFinite(n) && n >= 1 && n <= MAX_CARDS ? n : 4;
+    }
+    function cleanTimer(t) {
+      const out = { ...DEFAULT_TIMER, ...(t || {}) };
+      if (!END_SOUNDS.includes(out.endSound)) out.endSound = DEFAULT_TIMER.endSound;
+      if (!MUSIC.includes(out.music)) out.music = DEFAULT_TIMER.music;
+      return out;
+    }
+    function newCustomId() { return 'c:' + Math.random().toString(36).slice(2, 9); }
+
+    function shapeById(id, custom = state.custom) {
+      return SHAPE_BY_ID[id] || custom.find(c => c.id === id) || { id, name: '?' };
+    }
+    function colorAt(pos, backs = state.backs) {
+      if (backs === 'gray') return { hex: null, light: false };
+      const c = CARD_COLORS[pos] || CARD_COLORS[0];
+      return { hex: c.hex, light: !!c.light };
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        if (!s || !Array.isArray(s.round)) return null;
+        const custom = cleanCustom(s.custom);
+        const round = s.round.filter(c => c && typeof c.shape === 'string' && Number.isFinite(c.value)).slice(0, MAX_CARDS);
+        const flipped = Array.isArray(s.flipped) ? round.map((_, i) => !!s.flipped[i]) : round.map(() => false);
+        return {
+          ...defaultState(), ...s,
+          custom,
+          enabled: cleanEnabled(s.enabled, custom),
+          values: cleanValues(s.values),
+          count: cleanCount(s.count),
+          spread: !!s.spread,
+          backs: BACK_STYLES.includes(s.backs) ? s.backs : 'colors',
+          flipSound: 'flipSound' in s ? !!s.flipSound : true,
+          timer: cleanTimer(s.timer),
+          round, flipped,
+        };
+      } catch { return null; }
+    }
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+    }
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+    function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    // Deal a fresh set of shapes and give each one random points.
+    function dealRound(enabled, count, values, spread) {
+      const shapes = shuffle(enabled).slice(0, Math.min(count, enabled.length));
+      let pool = [];
+      return shapes.map(shape => {
+        let value;
+        if (spread) {
+          if (!pool.length) pool = shuffle(values);   // hand out every value once before repeating any
+          value = pool.pop();
+        } else {
+          value = pick(values);
+        }
+        return { shape, value };
+      });
+    }
+    function newRound(doSave = true) {
+      state.round = dealRound(state.enabled, state.count, state.values, state.spread);
+      state.flipped = state.round.map(() => false);
+      if (doSave) save();
+    }
+
+    // ---------- rendering ----------
+    const cardsEl = document.getElementById('cards');
+    const msgEl = document.getElementById('msg');
+    const nextBtn = document.getElementById('nextBtn');
+    const timerBtn = document.getElementById('timerBtn');
+    const flipAllBtn = document.getElementById('flipAllBtn');
+    const countdownEl = document.getElementById('countdown');
+    const ding = document.getElementById('ding');
+    const musicEl = document.getElementById('musicAudio');
+
+    function figureSVG(shape) {
+      if (!shape.lines) return '';
+      const [cx, cy] = shape.head;
+      return `<svg viewBox="0 -6 100 126" aria-hidden="true">
+        <circle cx="${cx}" cy="${cy}" r="9" fill="currentColor"/>
+        <g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+          ${shape.lines.map(d => `<path d="${d}"/>`).join('')}
+        </g></svg>`;
+    }
+
+    function pointsText(v) { return `${v} point${v === 1 ? '' : 's'}`; }
+    const allFlipped = () => state.flipped.length > 0 && state.flipped.every(Boolean);
+    function resultText() {
+      return state.round.map(c => `${shapeById(c.shape).name}: ${c.value}`).join(' · ');
+    }
+    function introText() {
+      return state.round.length === 1
+        ? 'Ask a question, let the kids decide whether to do the shape, then flip the card.'
+        : 'Ask a question, let the kids each make a shape and hold it, then flip the cards.';
+    }
+
+    function renderCards() {
+      cardsEl.style.setProperty('--n', state.round.length);
+      cardsEl.innerHTML = '';
+      state.round.forEach((c, pos) => {
+        const shape = shapeById(c.shape);
+        const color = colorAt(pos);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'card';
+        btn.dataset.pos = pos;
+        btn.setAttribute('aria-label', shape.name);
+        btn.innerHTML = `
+          <div class="inner">
+            <div class="face back">
+              <div class="figure"></div>
+              <div class="sname"></div>
+              <div class="hint">Click to flip</div>
+            </div>
+            <div class="face front">
+              <div class="pts"></div>
+              <div class="who"></div>
+              <div class="which"></div>
+            </div>
+          </div>`;
+        const back = btn.querySelector('.back'), front = btn.querySelector('.front');
+        back.style.background = color.hex || '';
+        back.classList.toggle('light', color.light);
+        const fig = figureSVG(shape);
+        back.querySelector('.figure').innerHTML = fig;
+        back.querySelector('.figure').hidden = !fig;
+        back.querySelector('.sname').textContent = shape.name;
+        back.querySelector('.sname').classList.toggle('big', !fig);
+        front.style.background = color.hex || 'var(--back)';
+        front.classList.toggle('light', color.light);
+        front.querySelector('.pts').textContent = c.value;
+        front.querySelector('.who').textContent = c.value === 1 ? 'point' : 'points';
+        front.querySelector('.which').innerHTML = fig;
+        front.querySelector('.which').insertAdjacentText('beforeend', shape.name);
+        if (state.flipped[pos]) {
+          btn.disabled = true;
+          btn.classList.add('flipped');
+        }
+        btn.addEventListener('click', () => flip(pos));
+        cardsEl.appendChild(btn);
+      });
+      const done = allFlipped();
+      nextBtn.hidden = !done;
+      flipAllBtn.hidden = done || state.round.length < 2;
+      updateTimerUI();
+      msgEl.textContent = done ? resultText() : introText();
+    }
+
+    // ---------- game actions ----------
+    function playDing() {
+      if (state.flipSound) { try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {} }
+    }
+    function finishRound(delay) {
+      setTimeout(() => {
+        msgEl.textContent = resultText();
+        nextBtn.hidden = false;
+        nextBtn.focus();
+      }, delay);
+    }
+
+    function flip(pos) {
+      if (state.flipped[pos] || allFlipped()) return;
+      if (timer.running) {
+        if (state.timer.lock) return;
+        stopTimer();
+      }
+      state.flipped[pos] = true;
+      save();
+      playDing();
+      const btn = cardsEl.querySelector(`.card[data-pos="${pos}"]`);
+      btn.disabled = true;
+      btn.classList.add('flipped');
+      updateTimerUI();
+      if (allFlipped()) { flipAllBtn.hidden = true; finishRound(700); }
+    }
+
+    // Reveal every card still face down.
+    function flipAll() {
+      if (allFlipped()) return;
+      if (timer.running) {
+        if (state.timer.lock) return;
+        stopTimer();
+      }
+      state.flipped = state.round.map(() => true);
+      save();
+      playDing();
+      cardsEl.querySelectorAll('.card').forEach(b => { b.disabled = true; b.classList.add('flipped'); });
+      flipAllBtn.hidden = true;
+      updateTimerUI();
+      finishRound(800);
+    }
+    flipAllBtn.addEventListener('click', flipAll);
+
+    nextBtn.addEventListener('click', () => { stopTimer(); newRound(); renderCards(); });
+    document.getElementById('redealBtn').addEventListener('click', () => { stopTimer(); newRound(); renderCards(); });
+
+    // ---------- countdown timer ----------
+    const timer = { running: false, remaining: 0, id: null, doneId: null };
+
+    function startTimer() {
+      if (timer.running || !state.timer.enabled || allFlipped()) return;
+      clearTimeout(timer.doneId);
+      timer.running = true;
+      timer.remaining = Math.max(1, Math.round(state.timer.seconds) || 10);
+      countdownEl.classList.remove('done');
+      countdownEl.querySelector('.label').textContent = 'Strike your pose!';
+      countdownEl.hidden = false;
+      showRemaining();
+      startMusic();
+      timer.id = setInterval(() => {
+        timer.remaining--;
+        if (timer.remaining <= 0) { finishTimer(); return; }
+        showRemaining();
+      }, 1000);
+      updateTimerUI();
+    }
+
+    function showRemaining() {
+      const num = countdownEl.querySelector('.num');
+      num.textContent = timer.remaining;
+      countdownEl.classList.toggle('urgent', timer.remaining <= 3);
+      // Restart the tick animation each second while urgent.
+      if (timer.remaining <= 3) { num.style.animation = 'none'; void num.offsetWidth; num.style.animation = ''; }
+    }
+
+    function stopTimer() {
+      if (!timer.running) return;
+      clearInterval(timer.id);
+      timer.running = false;
+      stopMusic();
+      countdownEl.hidden = true;
+      countdownEl.classList.remove('urgent');
+      updateTimerUI();
+    }
+
+    function finishTimer() {
+      clearInterval(timer.id);
+      timer.running = false;
+      stopMusic();
+      playEndSound();
+      countdownEl.classList.remove('urgent');
+      countdownEl.classList.add('done');
+      countdownEl.querySelector('.num').textContent = 'Hold it!';
+      countdownEl.querySelector('.label').textContent = 'Now flip the cards';
+      timer.doneId = setTimeout(() => { countdownEl.hidden = true; countdownEl.classList.remove('done'); }, 1800);
+      updateTimerUI();
+    }
+
+    function updateTimerUI() {
+      const canUse = state.timer.enabled && !allFlipped();
+      timerBtn.hidden = !canUse;
+      timerBtn.classList.toggle('running', timer.running);
+      timerBtn.textContent = timer.running ? 'Stop timer' : `Start timer (${state.timer.seconds}s)`;
+      const locked = timer.running && state.timer.lock;
+      flipAllBtn.disabled = locked;
+      cardsEl.querySelectorAll('.card').forEach(b => {
+        const pos = parseInt(b.dataset.pos, 10);
+        b.classList.toggle('locked', locked);
+        if (!state.flipped[pos]) b.disabled = locked;
+        const hint = b.querySelector('.back .hint');
+        if (hint) hint.textContent = locked ? 'Wait for the timer' : 'Click to flip';
+      });
+    }
+
+    timerBtn.addEventListener('click', () => { timer.running ? stopTimer() : startTimer(); timerBtn.blur(); });
+
+    // ---------- sounds ----------
+    let audioCtx = null;
+    function getCtx() {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+    // A single note at absolute time `at`, optionally sliding to `freqEnd`.
+    function tone(dest, type, freq, at, dur, vol, freqEnd) {
+      const ctx = dest.context;
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, at);
+      if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, at + dur);
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(vol, at + 0.015);
+      g.gain.setValueAtTime(vol, at + dur * 0.6);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      o.connect(g); g.connect(dest);
+      o.start(at); o.stop(at + dur + 0.05);
+    }
+    let noiseBuf = null;
+    function noise(dest, at, dur, vol, hz) {
+      const ctx = dest.context;
+      if (!noiseBuf) {
+        noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = noiseBuf;
+      f.type = 'bandpass'; f.frequency.value = hz; f.Q.value = 1.2;
+      g.gain.setValueAtTime(vol, at);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      src.connect(f); f.connect(g); g.connect(dest);
+      src.start(at); src.stop(at + dur + 0.02);
+    }
+    const midi = m => 440 * Math.pow(2, (m - 69) / 12);
+
+    function beep(kind) {
+      try {
+        const ctx = getCtx(), now = ctx.currentTime, out = ctx.destination;
+        if (kind === 'buzzer') { tone(out, 'sawtooth', 140, now, 0.9, 0.35); tone(out, 'square', 92, now, 0.9, 0.25); }
+        else if (kind === 'chime') { tone(out, 'sine', 880, now, 0.9, 0.3); tone(out, 'sine', 1174.7, now + 0.18, 0.9, 0.3); tone(out, 'sine', 1568, now + 0.36, 1.1, 0.3); }
+      } catch {}
+    }
+
+    // Generated walking music. Each pattern schedules one step at time `t` and
+    // returns the seconds until the next step. `progress` runs 0 → 1 over the countdown.
+    const GAMESHOW_LEAD = [72, 76, 79, 84, 79, 76, 72, 0, 74, 77, 81, 86, 81, 77, 74, 0, 76, 79, 83, 88, 83, 79, 76, 0, 77, 81, 84, 89, 84, 79, 76, 0];
+    const GAMESHOW_BASS = [48, 0, 0, 0, 55, 0, 0, 0, 50, 0, 0, 0, 57, 0, 0, 0, 52, 0, 0, 0, 59, 0, 0, 0, 53, 0, 0, 0, 55, 0, 0, 0];
+    const PATTERNS = {
+      tick(out, t, step, progress, remaining) {
+        const urgent = remaining <= 3;
+        const hi = step % 2 === 0;
+        noise(out, t, 0.04, urgent ? 0.7 : 0.5, hi ? 3200 : 2200);
+        tone(out, 'square', hi ? 1500 : 1000, t, 0.03, urgent ? 0.16 : 0.1);
+        return urgent ? 0.25 : 0.5;
+      },
+      heartbeat(out, t, step, progress) {
+        tone(out, 'sine', 70, t, 0.16, 0.55, 42);           // lub
+        tone(out, 'sine', 62, t + 0.19, 0.14, 0.38, 40);    // dub
+        return 1.05 - 0.65 * progress;                       // 1.05s apart → 0.4s apart
+      },
+      gameshow(out, t, step) {
+        const i = step % GAMESHOW_LEAD.length;
+        if (GAMESHOW_LEAD[i]) tone(out, 'square', midi(GAMESHOW_LEAD[i]), t, 0.13, 0.08);
+        if (GAMESHOW_BASS[i]) tone(out, 'triangle', midi(GAMESHOW_BASS[i]), t, 0.3, 0.22);
+        if (i % 4 === 2) noise(out, t, 0.05, 0.15, 6000);  // light hi-hat
+        return 0.15;
+      },
+    };
+    const synth = { id: null, master: null, kind: null, start: 0, total: 0, next: 0, step: 0 };
+    function startSynthMusic(kind, total) {
+      stopSynthMusic();
+      try {
+        const ctx = getCtx();
+        synth.master = ctx.createGain();
+        synth.master.gain.value = 1;
+        synth.master.connect(ctx.destination);
+        synth.kind = kind; synth.total = Math.max(1, total);
+        synth.start = synth.next = ctx.currentTime + 0.05; synth.step = 0;
+        scheduleSynth();
+        synth.id = setInterval(scheduleSynth, 60);
+      } catch {}
+    }
+    function scheduleSynth() {
+      const ctx = audioCtx, out = synth.master;
+      if (!ctx || !out) return;
+      while (synth.next < ctx.currentTime + 0.25) {
+        const elapsed = synth.next - synth.start;
+        const remaining = synth.total - elapsed;
+        const progress = Math.min(1, Math.max(0, elapsed / synth.total));
+        const dt = PATTERNS[synth.kind](out, synth.next, synth.step, progress, remaining);
+        synth.next += Math.max(0.05, dt);
+        synth.step++;
+      }
+    }
+    function stopSynthMusic() {
+      clearInterval(synth.id); synth.id = null;
+      const m = synth.master; synth.master = null;
+      if (m) {
+        try {
+          m.gain.setTargetAtTime(0, m.context.currentTime, 0.02);
+          setTimeout(() => { try { m.disconnect(); } catch {} }, 200);
+        } catch {}
+      }
+    }
+
+    function playEndSound(cfg = state.timer) {
+      if (cfg.endSound === 'none') return;
+      if (cfg.endSound === 'ding') { try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {} return; }
+      beep(cfg.endSound);
+    }
+
+    function musicSrc(cfg = state.timer) {
+      return cfg.music === 'none' || cfg.music.startsWith('synth:') ? '' : cfg.music;
+    }
+    function startMusic(cfg = state.timer, total = cfg.seconds) {
+      stopMusic();
+      if (cfg.music.startsWith('synth:')) { startSynthMusic(cfg.music.slice(6), total); return; }
+      const src = musicSrc(cfg);
+      if (!src) return;
+      try {
+        if (musicEl.getAttribute('src') !== src) musicEl.src = src;
+        musicEl.currentTime = 0;
+        musicEl.play().catch(() => {});
+      } catch {}
+    }
+    function stopMusic() {
+      stopSynthMusic();
+      try { musicEl.pause(); } catch {}
+    }
+    let previewId = null;
+    function previewMusic(cfg) {
+      clearTimeout(previewId);
+      const secs = Math.min(6, cfg.seconds || 6);
+      startMusic(cfg, secs);
+      previewId = setTimeout(stopMusic, secs * 1000);
+    }
+
+    // Keyboard: 1–4 flips a card, F flips all, N or Enter starts the next round, space runs the timer.
+    document.addEventListener('keydown', e => {
+      if (!setup.hidden || (e.target instanceof Element && e.target.matches('input, select, textarea'))) return;
+      if (e.key === ' ' || e.code === 'Space') {
+        if (e.target instanceof Element && e.target.matches('button')) return; // let the button handle it
+        e.preventDefault();
+        if (timer.running) stopTimer(); else startTimer();
+        return;
+      }
+      const k = e.key.toUpperCase();
+      const pos = /^[1-4]$/.test(k) ? parseInt(k, 10) - 1 : -1;
+      if (pos >= 0 && pos < state.round.length && !state.flipped[pos]) { flip(pos); return; }
+      if (k === 'F' && !allFlipped()) { flipAll(); return; }
+      if ((k === 'N' || e.key === 'Enter') && allFlipped()) { newRound(); renderCards(); }
+    });
+
+    // ---------- setup panel ----------
+    const setup = document.getElementById('setup');
+    const shapeGrid = document.getElementById('shapeGrid');
+    const customName = document.getElementById('customName');
+    const summary = document.getElementById('summary');
+    const spreadBox = document.getElementById('spread');
+    const flipSoundBox = document.getElementById('flipSound');
+    let draftCustom = [];
+    let draftEnabled = new Set();
+
+    const timerFields = {
+      enabled: document.getElementById('timerEnabled'),
+      seconds: document.getElementById('timerSeconds'),
+      endSound: document.getElementById('endSound'),
+      music: document.getElementById('music'),
+      lock: document.getElementById('timerLock'),
+    };
+    function fillTimerFields(t) {
+      timerFields.enabled.checked = !!t.enabled;
+      timerFields.seconds.value = t.seconds;
+      timerFields.endSound.value = t.endSound;
+      timerFields.music.value = t.music;
+      timerFields.lock.checked = !!t.lock;
+      syncTimerUI();
+    }
+    function readTimerFields() {
+      const secs = parseInt(timerFields.seconds.value, 10);
+      return {
+        enabled: timerFields.enabled.checked,
+        seconds: Number.isFinite(secs) && secs > 0 ? Math.min(600, secs) : 10,
+        endSound: timerFields.endSound.value,
+        music: timerFields.music.value,
+        lock: timerFields.lock.checked,
+      };
+    }
+    function syncTimerUI() {
+      document.getElementById('timerOpts').hidden = !timerFields.enabled.checked;
+    }
+    timerFields.enabled.addEventListener('change', syncTimerUI);
+    document.getElementById('previewEnd').addEventListener('click', () => playEndSound(readTimerFields()));
+    document.getElementById('previewMusic').addEventListener('click', () => previewMusic(readTimerFields()));
+
+    function draftCount() { const r = document.querySelector('input[name=count]:checked'); return r ? parseInt(r.value, 10) : 4; }
+    function draftBacks() { const r = document.querySelector('input[name=backs]:checked'); return r ? r.value : 'colors'; }
+    function draftValues() {
+      return [...document.querySelectorAll('#valueChips input:checked')].map(i => parseInt(i.value, 10));
+    }
+
+    function openSetup() {
+      stopTimer();
+      draftCustom = state.custom.map(c => ({ ...c }));
+      draftEnabled = new Set(state.enabled);
+      renderShapeGrid();
+      document.querySelector(`input[name=count][value="${state.count}"]`).checked = true;
+      document.querySelectorAll('#valueChips input').forEach(i => { i.checked = state.values.includes(parseInt(i.value, 10)); });
+      spreadBox.checked = !!state.spread;
+      document.querySelector(`input[name=backs][value="${state.backs}"]`).checked = true;
+      flipSoundBox.checked = !!state.flipSound;
+      fillTimerFields(state.timer);
+      customName.value = '';
+      renderSummary();
+      setup.hidden = false;
+      customName.focus();
+      setup.querySelector('.panel').scrollTop = 0;
+    }
+    function closeSetup() { setup.hidden = true; clearTimeout(previewId); stopMusic(); }
+
+    // One tile per shape: built-ins with their drawing, custom ones with a big initial and a remove button.
+    function renderShapeGrid() {
+      shapeGrid.innerHTML = '';
+      [...SHAPES, ...draftCustom].forEach(shape => {
+        const tile = document.createElement('label');
+        tile.className = 'tile';
+        const box = document.createElement('input');
+        box.type = 'checkbox'; box.value = shape.id; box.checked = draftEnabled.has(shape.id);
+        box.addEventListener('change', () => { box.checked ? draftEnabled.add(shape.id) : draftEnabled.delete(shape.id); renderSummary(); });
+        tile.appendChild(box);
+        if (shape.lines) {
+          tile.insertAdjacentHTML('beforeend', figureSVG(shape));
+        } else {
+          const init = document.createElement('div');
+          init.className = 'initial';
+          init.textContent = shape.name.slice(0, 1).toUpperCase();
+          tile.appendChild(init);
+          const rm = document.createElement('button');
+          rm.type = 'button'; rm.className = 'remove'; rm.textContent = '×';
+          rm.title = `Remove ${shape.name}`; rm.setAttribute('aria-label', `Remove ${shape.name}`);
+          rm.addEventListener('click', e => {
+            e.preventDefault();
+            draftCustom = draftCustom.filter(c => c.id !== shape.id);
+            draftEnabled.delete(shape.id);
+            renderShapeGrid(); renderSummary();
+          });
+          tile.appendChild(rm);
+        }
+        const name = document.createElement('div');
+        name.className = 'tname'; name.textContent = shape.name; name.title = shape.name;
+        tile.appendChild(name);
+        shapeGrid.appendChild(tile);
+      });
+    }
+
+    function addCustom() {
+      const name = customName.value.trim().slice(0, 20);
+      if (!name || draftCustom.length >= MAX_CUSTOM) return;
+      const id = newCustomId();
+      draftCustom.push({ id, name });
+      draftEnabled.add(id);
+      customName.value = '';
+      renderShapeGrid(); renderSummary();
+      customName.focus();
+    }
+    document.getElementById('addCustom').addEventListener('click', addCustom);
+    customName.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } });
+
+    function listWords(arr, word = 'or') {
+      if (arr.length <= 1) return arr.join('');
+      return arr.slice(0, -1).join(', ') + ` ${word} ` + arr[arr.length - 1];
+    }
+    function renderSummary() {
+      const n = draftEnabled.size, count = draftCount(), values = draftValues();
+      summary.classList.remove('warn');
+      if (!n) { summary.textContent = 'Tick at least one shape.'; summary.classList.add('warn'); return; }
+      if (!values.length) { summary.textContent = 'Tick at least one point value.'; summary.classList.add('warn'); return; }
+      const dealt = Math.min(n, count);
+      let text = `${dealt} of ${n} shape${n === 1 ? '' : 's'} each round, each worth ${listWords(values.map(String))} point${values.length === 1 && values[0] === 1 ? '' : 's'}.`;
+      if (count > n) text += ` Only ${n} shape${n === 1 ? ' is' : 's are'} ticked, so rounds show ${n} card${n === 1 ? '' : 's'}.`;
+      summary.textContent = text;
+    }
+    document.querySelectorAll('input[name=count], #valueChips input').forEach(i => i.addEventListener('change', renderSummary));
+
+    document.getElementById('setupBtn').addEventListener('click', openSetup);
+    document.getElementById('cancelSetup').addEventListener('click', () => {
+      if (firstRun) { firstRun = false; save(); renderCards(); }
+      closeSetup();
+    });
+    document.getElementById('applySetup').addEventListener('click', () => {
+      const values = draftValues();
+      const enabled = [...draftEnabled];
+      if (!values.length || !enabled.length) { renderSummary(); return; }
+      state.custom = draftCustom.map(c => ({ ...c }));
+      state.enabled = enabled;
+      state.count = draftCount();
+      state.values = values.sort((a, b) => a - b);
+      state.spread = spreadBox.checked;
+      state.backs = draftBacks();
+      state.flipSound = flipSoundBox.checked;
+      state.timer = readTimerFields();
+      firstRun = false;
+      newRound();
+      renderCards();
+      closeSetup();
+    });
+    setup.addEventListener('click', e => { if (e.target === setup && !firstRun) closeSetup(); });
+
+    // ---------- boot ----------
+    renderCards();
+    if (firstRun) openSetup();
+  </script>
+</body>
+</html>

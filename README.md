@@ -15,6 +15,7 @@ next. Everything is random each round so kids cannot learn a "safe" spot.
 | --- | --- |
 | `index.html` | Landing page that links to every game |
 | `cardflip.html` | Card Flip review game (see below) |
+| `pose.html` | Strike a Pose review game (see below) |
 | `bingo.html` | Bingo card creator and printer |
 | `sundayschool_colorpicker.html` | Color Picker game with four colors |
 | `sundayschool_colorpicker6.html` | Color Picker game with six colors |
@@ -78,6 +79,44 @@ within a few seconds so a stray click cannot wipe a game.
 The ▲ button at the right of the top bar hides the bar so only the cards
 show on the projector. A small **Menu** tab in the top-right corner brings
 it back, and the H key toggles it. The choice is remembered.
+
+## Strike a Pose
+
+Cards show body shapes (Pencil, T, X, Y, L, Ball, Tree, Airplane, Chair and
+Hero, drawn as stick figures). Kids make the shape they want and hold it, then
+the cards flip to show how many points each shape was worth. Points are drawn
+at random every round, so a shape that was worth 2 last time may be worth 0
+now, and the set of shapes on the cards changes every round too.
+
+### Playing a round
+
+1. Ask a question and let the kids each make one of the shapes on the cards.
+2. Optionally start the timer so they have a fixed time to get into position.
+3. Click a card, or press its number key (1 to 4), to reveal that shape's
+   points. **Flip all** (or the F key) reveals every card at once.
+4. Once every card is face up, click **Next round** or press N or Enter.
+   A new set of shapes is dealt, face down, with fresh random points.
+
+**New shapes** in the top bar deals a different set of shapes without
+revealing anything, in case the current set is not a good fit.
+
+### Setup options
+
+Click **Setup** in the top bar.
+
+- **Shapes.** Tick the shapes that may appear on the cards. Add your own with
+  the text box; those show their name in big letters instead of a drawing, and
+  the × on their tile removes them again.
+- **Cards each round.** 1 to 4 cards. With one card, the kids simply decide
+  whether to do that shape. If fewer shapes are ticked than cards, rounds show
+  as many cards as there are shapes.
+- **Points.** Tick the values a card can be worth, from 0 to 5. Each card
+  draws one of the ticked values at random. "Give each shape a different
+  value when possible" deals the ticked values out like a hand of cards, so
+  two shapes only share a value when there are more cards than values.
+- **Card backs.** Colored (yellow, blue, red, green by position) or plain gray.
+- **Sounds** and **Timer** work the same as in Card Flip, except the timer
+  tells the kids to strike and hold their pose.
 
 ## Bingo Card Creator
 
