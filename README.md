@@ -118,8 +118,11 @@ Click **Setup** in the top bar.
   value when possible" deals the ticked values out like a hand of cards, so
   two shapes only share a value when there are more cards than values.
 - **Card backs.** Colored (yellow, blue, red, green by position) or plain gray.
-- **Sounds** and **Timer** work the same as in Card Flip, except the timer
-  tells the kids to strike and hold their pose.
+- **Sounds**, **Hints** and **Timer** work the same as in Card Flip, except
+  the timer tells the kids to strike and hold their pose.
+
+The ▲ button hides the top bar and the faint **Menu** tab or the H key brings
+it back, as in Card Flip.
 
 ## Bingo Card Creator
 
