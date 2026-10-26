@@ -97,6 +97,11 @@
       background: rgba(0,0,0,.35); border-radius: 18px;
     }
     #countdown.done { background: rgba(0,0,0,.6); }
+    #countdown .box {
+      display: flex; flex-direction: column; align-items: center;
+      background: rgba(0,0,0,.88); border: 3px solid rgba(255,255,255,.25); border-radius: 28px;
+      padding: 1vh 6vw 2.5vh; min-width: 36vw; box-shadow: 0 12px 48px rgba(0,0,0,.6);
+    }
     #countdown[hidden] { display: none; }
     #countdown .num {
       font-size: clamp(6rem, 42vh, 30rem); font-weight: 800; line-height: 1; color: #fff;
@@ -163,7 +168,7 @@
 
     #roundbar { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 44px; }
     #roundbar .msg { color: var(--muted); font-size: .95rem; }
-    #nextBtn { font-size: 1.1rem; padding: 10px 22px; }
+    #nextBtn, #flipAllBtn { font-size: 1.1rem; padding: 10px 22px; }
 
     /* ---------- setup overlay ---------- */
     #setup {
@@ -237,9 +242,10 @@
 
   <main>
     <div id="cards"></div>
-    <div id="countdown" hidden><div class="num">10</div><div class="label">Get to your spot!</div></div>
+    <div id="countdown" hidden><div class="box"><div class="num">10</div><div class="label">Get to your spot!</div></div></div>
     <div id="roundbar">
       <span class="msg" id="msg"></span>
+      <button id="flipAllBtn" hidden title="Reveal every card at once (A)">Flip all</button>
       <button id="timerBtn" hidden>Start timer</button>
       <button id="nextBtn" class="primary" hidden>Next round</button>
     </div>
@@ -324,10 +330,10 @@
           <button type="button" id="previewMusic">Preview</button>
         </div>
         <div class="row"><label><input type="checkbox" id="timerLock"> Cards stay locked until the timer ends</label></div>
-        <p class="help">Custom files go in the same folder as this page. Space bar starts and stops the timer.</p>
+        <p class="help">To use your own sound or music, put the file next to cardflip.html and type its name above. During the game, press the space bar to start or stop the timer.</p>
       </div>
 
-      <p class="help">Cards shuffle every round and go back face down. Have the kids stand by the color they want, then click that card.</p>
+      <p class="help">Cards shuffle every round and go back face down. Have the kids stand by the color they want, then click that card. Or click Flip all to reveal every card at once.</p>
 
       <div class="actions">
         <button id="cancelSetup">Cancel</button>
@@ -437,12 +443,15 @@
     const msgEl = document.getElementById('msg');
     const nextBtn = document.getElementById('nextBtn');
     const timerBtn = document.getElementById('timerBtn');
+    const flipAllBtn = document.getElementById('flipAllBtn');
     const countdownEl = document.getElementById('countdown');
     const ding = document.getElementById('ding');
     const musicEl = document.getElementById('musicAudio');
 
     function pointsText(v) { return `${v} point${v === 1 ? '' : 's'}`; }
+    const ALL = -1;   // state.flipped value when every card was revealed at once
     function resultText(pos) {
+      if (pos === ALL) return state.useTeams ? 'All cards flipped. Use + and − to award points.' : 'All cards flipped.';
       const c = state.deck[state.order[pos]];
       const color = colorAt(pos).name;
       return state.useTeams ? `${color}: ${state.teams[c.team].name} +${c.value}` : `${color}: ${pointsText(c.value)}`;
@@ -513,13 +522,14 @@
         if (state.flipped !== null) {
           btn.disabled = true;
           btn.classList.add('flipped');
-          btn.classList.add(pos === state.flipped ? 'chosen' : 'peek');
+          if (state.flipped !== ALL) btn.classList.add(pos === state.flipped ? 'chosen' : 'peek');
         }
         btn.addEventListener('click', () => flip(pos));
         cardsEl.appendChild(btn);
       });
       const done = state.flipped !== null;
       nextBtn.hidden = !done;
+      flipAllBtn.hidden = done;
       updateTimerUI();
       msgEl.textContent = done ? resultText(state.flipped) : 'Ask a question, let the kids pick a color, then flip it.';
     }
@@ -575,6 +585,27 @@
       const teamEl = scoreboard.querySelector(`.team[data-team="${team}"]`);
       teamEl.querySelector('.score').textContent = state.scores[team];
     }
+
+    // Reveal every card at once. Nobody is "chosen", so with teams the teacher awards points by hand.
+    function flipAll() {
+      if (state.flipped !== null) return;
+      if (timer.running) {
+        if (state.timer.lock) return;
+        stopTimer();
+      }
+      state.flipped = ALL;
+      save();
+      try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {}
+      cardsEl.querySelectorAll('.card').forEach(b => { b.disabled = true; b.classList.add('flipped'); });
+      flipAllBtn.hidden = true;
+      updateTimerUI();
+      setTimeout(() => {
+        msgEl.textContent = resultText(ALL);
+        nextBtn.hidden = false;
+        nextBtn.focus();
+      }, 800);
+    }
+    flipAllBtn.addEventListener('click', flipAll);
 
     nextBtn.addEventListener('click', () => { stopTimer(); newRound(); renderCards(); });
 
@@ -636,6 +667,7 @@
       timerBtn.classList.toggle('running', timer.running);
       timerBtn.textContent = timer.running ? 'Stop timer' : `Start timer (${state.timer.seconds}s)`;
       const locked = timer.running && state.timer.lock;
+      flipAllBtn.disabled = locked;
       cardsEl.querySelectorAll('.card').forEach(b => {
         b.classList.toggle('locked', locked);
         if (state.flipped === null) b.disabled = locked;
@@ -814,7 +846,7 @@
       resetBtn.textContent = 'Reset game';
     }
 
-    // Keyboard: 1–4 flips a card (left to right), N or Enter starts the next round.
+    // Keyboard: 1–4 flips a card (left to right), A flips all, N or Enter starts the next round.
     document.addEventListener('keydown', e => {
       if (!setup.hidden || (e.target instanceof Element && e.target.matches('input, select, textarea'))) return;
       if (e.key === ' ' || e.code === 'Space') {
@@ -826,6 +858,7 @@
       const k = e.key.toUpperCase();
       const pos = /^[1-4]$/.test(k) ? parseInt(k, 10) - 1 : -1;
       if (pos >= 0 && pos < state.order.length && state.flipped === null) { flip(pos); return; }
+      if (k === 'A' && state.flipped === null) { flipAll(); return; }
       if ((k === 'N' || e.key === 'Enter') && state.flipped !== null) { newRound(); renderCards(); }
     });
 
