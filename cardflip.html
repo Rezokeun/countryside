@@ -302,6 +302,9 @@
       <div id="colorRows"></div>
       <p class="help" id="colorsHelp">Kids stand by the color they want. Click a swatch to change a card's color. Picking a color another card already uses swaps the two.</p>
 
+      <h3>Sounds</h3>
+      <div class="row"><label><input type="checkbox" id="flipSound"> Play a ding when a card is flipped</label></div>
+
       <h3>Timer</h3>
       <div class="row"><label><input type="checkbox" id="timerEnabled"> Count down while kids walk to their card</label></div>
       <div id="timerOpts" hidden>
@@ -389,6 +392,7 @@
       teams: [{ name: 'Red', color: '#d93025' }, { name: 'Blue', color: '#1a73e8' }],
       scores: [0, 0],
       labels: 'colors',                 // 'colors' or 'letters' (gray A-D)
+      flipSound: true,                  // ding when a card is flipped
       colors: DEFAULT_COLORS.slice(),   // palette name per card position
       preset: DEFAULT_PRESET.solo,
       deck: PRESETS[DEFAULT_PRESET.solo].map(c => ({ ...c })),
@@ -433,6 +437,7 @@
           ...defaultState(), ...s,
           useTeams: 'useTeams' in s ? !!s.useTeams : true,   // games saved before this option had teams
           labels: LABEL_STYLES.includes(s.labels) ? s.labels : 'colors',
+          flipSound: 'flipSound' in s ? !!s.flipSound : true,
           colors: cleanColors(s.colors),
           timer: cleanTimer(s.timer),
         };
@@ -569,7 +574,7 @@
       if (state.useTeams) state.scores[c.team] += c.value;
       save();
 
-      try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {}
+      if (state.flipSound) { try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {} }
 
       const btn = cardsEl.querySelector(`.card[data-pos="${pos}"]`);
       cardsEl.querySelectorAll('.card').forEach(b => { b.disabled = true; });
@@ -616,7 +621,7 @@
       }
       state.flipped = ALL;
       save();
-      try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {}
+      if (state.flipSound) { try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {} }
       cardsEl.querySelectorAll('.card').forEach(b => { b.disabled = true; b.classList.add('flipped'); });
       flipAllBtn.hidden = true;
       updateTimerUI();
@@ -937,6 +942,7 @@
       draftDeck = state.deck.map(c => ({ ...c }));
       draftColors = cleanColors(state.colors);
       document.querySelector(`input[name=labels][value="${state.labels}"]`).checked = true;
+      document.getElementById('flipSound').checked = !!state.flipSound;
       customCount.value = String(draftDeck.length);
       fillTimerFields(state.timer);
       selectPreset(state.preset);
@@ -1099,6 +1105,7 @@
       state.useTeams = useTeamsBox.checked;
       state.teams = [0, 1].map(i => ({ name: names[i], color: document.getElementById('color' + i).value }));
       state.labels = draftLabels();
+      state.flipSound = document.getElementById('flipSound').checked;
       state.colors = draftColors.slice();
       state.preset = currentPreset();
       state.deck = currentDraftDeck().map(c => ({ ...c }));
