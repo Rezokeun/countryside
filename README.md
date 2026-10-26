@@ -75,6 +75,10 @@ Click **Setup** in the top bar.
 **Reset game** clears both scores and deals a new round. It needs two clicks
 within a few seconds so a stray click cannot wipe a game.
 
+The ▲ button at the right of the top bar hides the bar so only the cards
+show on the projector. A small **Menu** tab in the top-right corner brings
+it back, and the H key toggles it. The choice is remembered.
+
 ## Bingo Card Creator
 
 Build 5×5 or 6×6 bingo cards from words or images and print as many unique

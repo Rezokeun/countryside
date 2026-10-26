@@ -45,6 +45,15 @@
       background: var(--card); border-bottom: 1px solid var(--border);
     }
     header h1 { font-size: 1.1rem; margin: 0; flex: 1; }
+    body.bar-hidden header { display: none; }
+    #hideBar { padding: 7px 9px; color: var(--muted); }
+    #showBar {
+      position: fixed; top: 0; right: 12px; z-index: 15;
+      padding: 2px 12px 4px; border-radius: 0 0 9px 9px; border-top: none;
+      font-size: .8rem; color: var(--muted); opacity: .35; transition: opacity .2s;
+    }
+    #showBar:hover, #showBar:focus-visible { opacity: 1; }
+    #showBar[hidden] { display: none; }
     header a { color: var(--muted); text-decoration: none; font-size: .9rem; }
     header a:hover { color: var(--accent); }
     button {
@@ -237,7 +246,9 @@
     <a href="index.html">All pages</a>
     <button id="setupBtn">Setup</button>
     <button id="resetBtn" class="danger">Reset game</button>
+    <button id="hideBar" title="Hide the top bar (H)" aria-label="Hide the top bar">▲</button>
   </header>
+  <button id="showBar" hidden title="Show the top bar (H)">▼ Menu</button>
 
   <section id="scoreboard"></section>
 
@@ -867,7 +878,7 @@
       resetBtn.textContent = 'Reset game';
     }
 
-    // Keyboard: 1–4 (or A–D in letter mode) flips a card, F flips all, N or Enter starts the next round.
+    // Keyboard: 1–4 (or A–D in letter mode) flips a card, F flips all, N or Enter starts the next round, H hides or shows the top bar.
     document.addEventListener('keydown', e => {
       if (!setup.hidden || (e.target instanceof Element && e.target.matches('input, select, textarea'))) return;
       if (e.key === ' ' || e.code === 'Space') {
@@ -881,6 +892,7 @@
       if (pos < 0 && state.labels === 'letters') pos = LETTERS.indexOf(k);
       if (pos >= 0 && pos < state.order.length && state.flipped === null) { flip(pos); return; }
       if (k === 'F' && state.flipped === null) { flipAll(); return; }
+      if (k === 'H') { setBarHidden(!document.body.classList.contains('bar-hidden')); return; }
       if ((k === 'N' || e.key === 'Enter') && state.flipped !== null) { newRound(); renderCards(); }
     });
 
@@ -1116,6 +1128,18 @@
       closeSetup();
     });
     setup.addEventListener('click', e => { if (e.target === setup && !firstRun) closeSetup(); });
+
+    // ---------- top bar ----------
+    const BAR_KEY = 'cardflip.barHidden';
+    const showBarBtn = document.getElementById('showBar');
+    function setBarHidden(hidden) {
+      document.body.classList.toggle('bar-hidden', hidden);
+      showBarBtn.hidden = !hidden;
+      try { localStorage.setItem(BAR_KEY, hidden ? '1' : '0'); } catch {}
+    }
+    document.getElementById('hideBar').addEventListener('click', () => { setBarHidden(true); showBarBtn.blur(); });
+    showBarBtn.addEventListener('click', () => { setBarHidden(false); showBarBtn.blur(); });
+    try { setBarHidden(localStorage.getItem(BAR_KEY) === '1'); } catch {}
 
     // ---------- boot ----------
     renderAll();
