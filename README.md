@@ -65,6 +65,9 @@ Click **Setup** in the top bar.
   a card's color. Picking a color another card already uses swaps the two, so
   no two cards share a color.
 - **Sounds.** Turn the ding that plays on every flip on or off.
+- **Hints.** Turn off the on-screen prompts such as "Ask a question, let the
+  kids pick a card, then flip it" and "Click to flip". Results like
+  "Yellow: 2 points" still show.
 - **Timer.** An optional countdown shown over the cards while kids walk to
   their spot. You can set the length in seconds, the sound when time runs out
   (buzzer, ding, chime or none), and music during the countdown (Jeopardy
