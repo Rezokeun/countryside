@@ -193,7 +193,7 @@
     input[type=number] { width: 84px; }
     .row > span.k { min-width: 190px; color: var(--muted); }
     .row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-    #timerOpts[hidden], #endSoundFile[hidden], #musicFile[hidden], #teamRows[hidden], .presets[hidden] { display: none; }
+    #timerOpts[hidden], #teamRows[hidden], .presets[hidden] { display: none; }
     input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); cursor: pointer; }
     .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .presets label {
@@ -310,10 +310,8 @@
             <option value="buzzer">Buzzer</option>
             <option value="ding">Ding</option>
             <option value="chime">Chime</option>
-            <option value="custom">Custom file…</option>
             <option value="none">None</option>
           </select>
-          <input type="text" id="endSoundFile" placeholder="e.g. horn.mp3" hidden>
           <button type="button" id="previewEnd">Preview</button>
         </div>
         <div class="row">
@@ -324,13 +322,11 @@
             <option value="synth:tick">Ticking clock</option>
             <option value="synth:heartbeat">Heartbeat (speeds up)</option>
             <option value="synth:gameshow">Game show tune</option>
-            <option value="custom">Custom file…</option>
           </select>
-          <input type="text" id="musicFile" placeholder="e.g. song.mp3" hidden>
           <button type="button" id="previewMusic">Preview</button>
         </div>
         <div class="row"><label><input type="checkbox" id="timerLock"> Cards stay locked until the timer ends</label></div>
-        <p class="help">To use your own sound or music, put the file next to cardflip.html and type its name above. During the game, press the space bar to start or stop the timer.</p>
+        <p class="help">During the game, press the space bar to start or stop the timer.</p>
       </div>
 
       <p class="help">Cards shuffle every round and go back face down. Have the kids stand by the color they want, then click that card. Or click Flip all to reveal every card at once.</p>
@@ -376,7 +372,9 @@
     const TEAM_PRESETS = ['2', '4'], SOLO_PRESETS = ['solo4', 'solo3'];
     const DEFAULT_PRESET = { teams: '2', solo: 'solo4' };
 
-    const DEFAULT_TIMER = { enabled: false, seconds: 10, endSound: 'buzzer', endSoundFile: '', music: 'none', musicFile: '', lock: true };
+    const DEFAULT_TIMER = { enabled: false, seconds: 10, endSound: 'buzzer', music: 'none', lock: true };
+    const END_SOUNDS = ['buzzer', 'ding', 'chime', 'none'];
+    const MUSIC = ['none', 'jeopardy.mp3', 'synth:tick', 'synth:heartbeat', 'synth:gameshow'];
 
     const defaultState = () => ({
       timer: { ...DEFAULT_TIMER },
@@ -400,6 +398,13 @@
       if (Array.isArray(list)) list.forEach((n, i) => { if (i < MAX_CARDS && PALETTE_BY_NAME[n]) out[i] = n; });
       return out;
     }
+    function cleanTimer(t) {
+      const out = { ...DEFAULT_TIMER, ...(t || {}) };
+      if (!END_SOUNDS.includes(out.endSound)) out.endSound = DEFAULT_TIMER.endSound;
+      if (!MUSIC.includes(out.music)) out.music = DEFAULT_TIMER.music;
+      delete out.endSoundFile; delete out.musicFile;
+      return out;
+    }
     function colorAt(pos, colors = state.colors) {
       return PALETTE_BY_NAME[colors[pos]] || PALETTE_BY_NAME[DEFAULT_COLORS[pos]] || PALETTE[0];
     }
@@ -414,7 +419,7 @@
           ...defaultState(), ...s,
           useTeams: 'useTeams' in s ? !!s.useTeams : true,   // games saved before this option had teams
           colors: cleanColors(s.colors),
-          timer: { ...DEFAULT_TIMER, ...(s.timer || {}) },
+          timer: cleanTimer(s.timer),
         };
       } catch { return null; }
     }
@@ -790,16 +795,11 @@
     function playEndSound(cfg = state.timer) {
       if (cfg.endSound === 'none') return;
       if (cfg.endSound === 'ding') { try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {} return; }
-      if (cfg.endSound === 'custom') {
-        if (cfg.endSoundFile) { try { new Audio(cfg.endSoundFile).play().catch(() => {}); } catch {} }
-        return;
-      }
       beep(cfg.endSound);
     }
 
     function musicSrc(cfg = state.timer) {
-      if (cfg.music === 'none' || cfg.music.startsWith('synth:')) return '';
-      return cfg.music === 'custom' ? cfg.musicFile : cfg.music;
+      return cfg.music === 'none' || cfg.music.startsWith('synth:') ? '' : cfg.music;
     }
     function startMusic(cfg = state.timer, total = cfg.seconds) {
       stopMusic();
@@ -879,18 +879,14 @@
       enabled: document.getElementById('timerEnabled'),
       seconds: document.getElementById('timerSeconds'),
       endSound: document.getElementById('endSound'),
-      endSoundFile: document.getElementById('endSoundFile'),
       music: document.getElementById('music'),
-      musicFile: document.getElementById('musicFile'),
       lock: document.getElementById('timerLock'),
     };
     function fillTimerFields(t) {
       timerFields.enabled.checked = !!t.enabled;
       timerFields.seconds.value = t.seconds;
       timerFields.endSound.value = t.endSound;
-      timerFields.endSoundFile.value = t.endSoundFile || '';
       timerFields.music.value = t.music;
-      timerFields.musicFile.value = t.musicFile || '';
       timerFields.lock.checked = !!t.lock;
       syncTimerUI();
     }
@@ -900,20 +896,14 @@
         enabled: timerFields.enabled.checked,
         seconds: Number.isFinite(secs) && secs > 0 ? Math.min(600, secs) : 10,
         endSound: timerFields.endSound.value,
-        endSoundFile: timerFields.endSoundFile.value.trim(),
         music: timerFields.music.value,
-        musicFile: timerFields.musicFile.value.trim(),
         lock: timerFields.lock.checked,
       };
     }
     function syncTimerUI() {
       document.getElementById('timerOpts').hidden = !timerFields.enabled.checked;
-      timerFields.endSoundFile.hidden = timerFields.endSound.value !== 'custom';
-      timerFields.musicFile.hidden = timerFields.music.value !== 'custom';
     }
     timerFields.enabled.addEventListener('change', syncTimerUI);
-    timerFields.endSound.addEventListener('change', syncTimerUI);
-    timerFields.music.addEventListener('change', syncTimerUI);
     document.getElementById('previewEnd').addEventListener('click', () => playEndSound(readTimerFields()));
     document.getElementById('previewMusic').addEventListener('click', () => previewMusic(readTimerFields()));
 
