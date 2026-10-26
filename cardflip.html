@@ -62,6 +62,7 @@
       display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
       padding: 12px 16px 0;
     }
+    #scoreboard[hidden] { display: none; }
     .team {
       position: relative;
       border-radius: 14px; padding: 10px 14px 12px;
@@ -106,6 +107,7 @@
     @keyframes tick { 0%{transform:scale(1.15)} 100%{transform:scale(1)} }
     #countdown.done .num { font-size: clamp(2.5rem, 12vw, 8rem); animation: tick .5s ease; }
     .card.locked .back .hint { color: #ffd166; opacity: 1; }
+    .card.locked .back.light .hint { color: #7a3e00; }
     #timerBtn { font-size: 1.1rem; padding: 10px 22px; }
     #timerBtn.running { background: #d93025; color: #fff; border-color: #d93025; }
     #cards {
@@ -132,15 +134,24 @@
     }
     .card .back {
       background: var(--back); color: var(--back-text);
-      background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.06) 0 12px, transparent 12px 24px);
-      border: 4px solid rgba(255,255,255,.25);
+      background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.08) 0 12px, transparent 12px 24px);
+      border: 4px solid rgba(255,255,255,.35);
     }
-    .card .back .letter { font-size: clamp(4rem, 18vh, 14rem); font-weight: 800; line-height: 1; }
-    .card .back .hint { font-size: clamp(.8rem, 1.6vw, 1.1rem); opacity: .7; margin-top: 8px; }
+    .card .back.light { color: #1c1e21; background-image: repeating-linear-gradient(45deg, rgba(0,0,0,.05) 0 12px, transparent 12px 24px); border-color: rgba(0,0,0,.15); }
+    /* Sized from the card width so the longest palette name ("Yellow") fits on one line. */
+    .card .back .cname {
+      font-size: min(13vh, calc((100vw - 32px - 16px * (var(--n, 2) - 1)) / var(--n, 2) / 5));
+      font-weight: 800; line-height: 1; white-space: nowrap;
+      text-transform: uppercase; letter-spacing: .02em; text-shadow: 0 3px 8px rgba(0,0,0,.35);
+    }
+    .card .back.light .cname { text-shadow: none; }
+    .card .back .hint { font-size: clamp(.8rem, 1.6vw, 1.1rem); opacity: .75; margin-top: 8px; }
     .card .front {
       transform: rotateY(180deg); color: #fff;
       border: 4px solid rgba(255,255,255,.5);
     }
+    .card .front.light { color: #1c1e21; border-color: rgba(0,0,0,.15); }
+    .card .front.light .pts, .card .front.light .who { text-shadow: none; }
     .card .front .pts { font-size: clamp(3.5rem, 16vh, 12rem); font-weight: 800; line-height: 1; text-shadow: 0 3px 6px rgba(0,0,0,.35); }
     .card .front .who { font-size: clamp(1rem, 3vw, 2rem); font-weight: 700; margin-top: 6px; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
     .card:not(.flipped):not(:disabled):hover .inner { transform: translateY(-4px); }
@@ -177,7 +188,7 @@
     input[type=number] { width: 84px; }
     .row > span.k { min-width: 190px; color: var(--muted); }
     .row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-    #timerOpts[hidden], #endSoundFile[hidden], #musicFile[hidden] { display: none; }
+    #timerOpts[hidden], #endSoundFile[hidden], #musicFile[hidden], #teamRows[hidden], .presets[hidden] { display: none; }
     input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); cursor: pointer; }
     .presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .presets label {
@@ -190,8 +201,19 @@
     .presets small { color: var(--muted); font-size: .8rem; }
     #customDeck { display: flex; flex-direction: column; gap: 6px; }
     #customDeck[hidden] { display: none; }
-    .cardrow { display: grid; grid-template-columns: 36px 1fr 100px; gap: 8px; align-items: center; }
-    .cardrow .lbl { font-weight: 700; text-align: center; background: var(--back); color: #fff; border-radius: 6px; padding: 6px 0; }
+    .cardrow { display: grid; grid-template-columns: 90px 1fr 100px; gap: 8px; align-items: center; }
+    .cardrow.solo { grid-template-columns: 90px 100px; }
+    .cardrow .lbl, .colorrow .lbl { font-weight: 700; text-align: center; color: #fff; border-radius: 6px; padding: 6px 4px; font-size: .85rem; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+    .cardrow .lbl.light, .colorrow .lbl.light { color: #1c1e21; text-shadow: none; }
+    #colorRows { display: flex; flex-direction: column; gap: 8px; }
+    .colorrow { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: center; }
+    .swatches { display: flex; gap: 6px; flex-wrap: wrap; }
+    .swatch {
+      width: 30px; height: 30px; border-radius: 50%; padding: 0; cursor: pointer;
+      border: 2px solid rgba(0,0,0,.2);
+    }
+    .swatch:hover { transform: scale(1.1); border-color: rgba(0,0,0,.2); }
+    .swatch.on { box-shadow: 0 0 0 2px var(--card), 0 0 0 5px var(--accent); }
     .summary { color: var(--muted); font-size: .9rem; margin-top: 10px; }
     .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
     .help { color: var(--muted); font-size: .85rem; margin: 6px 0 0; line-height: 1.4; }
@@ -228,20 +250,29 @@
       <h2>Game setup</h2>
 
       <h3>Teams</h3>
-      <div class="row">
-        <input type="color" id="color0">
-        <input type="text" id="name0" placeholder="Team 1 name" maxlength="24">
+      <div class="row"><label><input type="checkbox" id="useTeams"> Play with two teams and keep score</label></div>
+      <div id="teamRows">
+        <div class="row" style="margin-top:8px">
+          <input type="color" id="color0">
+          <input type="text" id="name0" placeholder="Team 1 name" maxlength="24">
+        </div>
+        <div class="row">
+          <input type="color" id="color1">
+          <input type="text" id="name1" placeholder="Team 2 name" maxlength="24">
+        </div>
       </div>
-      <div class="row">
-        <input type="color" id="color1">
-        <input type="text" id="name1" placeholder="Team 2 name" maxlength="24">
-      </div>
+      <p class="help" id="noTeamsHelp">Without teams, each card just shows how many points it is worth.</p>
 
       <h3>Cards</h3>
-      <div class="presets">
-        <label><input type="radio" name="preset" value="2"><strong>2 cards</strong><small>1 point each team</small></label>
-        <label><input type="radio" name="preset" value="4"><strong>4 cards</strong><small>1 &amp; 2 points each team</small></label>
-        <label><input type="radio" name="preset" value="custom"><strong>Custom</strong><small>Pick each card</small></label>
+      <div class="presets" id="presetsTeams">
+        <label><input type="radio" name="presetTeams" value="2"><strong>2 cards</strong><small>1 point each team</small></label>
+        <label><input type="radio" name="presetTeams" value="4"><strong>4 cards</strong><small>1 &amp; 2 points each team</small></label>
+        <label><input type="radio" name="presetTeams" value="custom"><strong>Custom</strong><small>Pick each card</small></label>
+      </div>
+      <div class="presets" id="presetsSolo">
+        <label><input type="radio" name="presetSolo" value="solo4"><strong>4 cards</strong><small>0, 1, 2 and 3 points</small></label>
+        <label><input type="radio" name="presetSolo" value="solo3"><strong>3 cards</strong><small>1, 2 and 3 points</small></label>
+        <label><input type="radio" name="presetSolo" value="custom"><strong>Custom</strong><small>Pick each card</small></label>
       </div>
       <div id="customDeck" hidden>
         <div class="row" style="margin:10px 0 4px">
@@ -256,8 +287,12 @@
       </div>
       <p class="summary" id="deckSummary"></p>
 
+      <h3>Card colors</h3>
+      <div id="colorRows"></div>
+      <p class="help">Kids stand by the color they want. Click a swatch to change a card's color. Picking a color another card already uses swaps the two.</p>
+
       <h3>Timer</h3>
-      <div class="row"><label><input type="checkbox" id="timerEnabled"> Count down while kids walk to their letter</label></div>
+      <div class="row"><label><input type="checkbox" id="timerEnabled"> Count down while kids walk to their color</label></div>
       <div id="timerOpts" hidden>
         <div class="row" style="margin-top:8px">
           <span class="k">Seconds</span>
@@ -292,7 +327,7 @@
         <p class="help">Custom files go in the same folder as this page. Space bar starts and stops the timer.</p>
       </div>
 
-      <p class="help">Cards shuffle every round and go back face down. Have the kids stand by the letter they want, then click that card.</p>
+      <p class="help">Cards shuffle every round and go back face down. Have the kids stand by the color they want, then click that card.</p>
 
       <div class="actions">
         <button id="cancelSetup">Cancel</button>
@@ -306,20 +341,45 @@
 
   <script>
     const KEY = 'cardflip.v1';
-    const LETTERS = ['A', 'B', 'C', 'D'];
+    // Colors a card position can have. `light` backgrounds get dark text.
+    const PALETTE = [
+      { name: 'Yellow', hex: '#f9c80e', light: true },
+      { name: 'Blue',   hex: '#1a73e8' },
+      { name: 'Red',    hex: '#d93025' },
+      { name: 'Green',  hex: '#2e9e44' },
+      { name: 'Orange', hex: '#f57c00' },
+      { name: 'Purple', hex: '#7e3fbf' },
+      { name: 'Pink',   hex: '#e8407a' },
+      { name: 'Teal',   hex: '#0b8c8c' },
+      { name: 'Brown',  hex: '#8d5524' },
+      { name: 'Black',  hex: '#222222' },
+      { name: 'White',  hex: '#f5f5f5', light: true },
+    ];
+    const PALETTE_BY_NAME = Object.fromEntries(PALETTE.map(p => [p.name, p]));
+    const DEFAULT_COLORS = ['Yellow', 'Blue', 'Red', 'Green'];
+    const MAX_CARDS = 4;
+
     const PRESETS = {
+      // with teams
       '2': [{ team: 0, value: 1 }, { team: 1, value: 1 }],
       '4': [{ team: 0, value: 1 }, { team: 0, value: 2 }, { team: 1, value: 1 }, { team: 1, value: 2 }],
+      // without teams
+      'solo4': [0, 1, 2, 3].map(v => ({ team: 0, value: v })),
+      'solo3': [1, 2, 3].map(v => ({ team: 0, value: v })),
     };
+    const TEAM_PRESETS = ['2', '4'], SOLO_PRESETS = ['solo4', 'solo3'];
+    const DEFAULT_PRESET = { teams: '2', solo: 'solo4' };
 
     const DEFAULT_TIMER = { enabled: false, seconds: 10, endSound: 'buzzer', endSoundFile: '', music: 'none', musicFile: '', lock: true };
 
     const defaultState = () => ({
       timer: { ...DEFAULT_TIMER },
+      useTeams: false,
       teams: [{ name: 'Red', color: '#d93025' }, { name: 'Blue', color: '#1a73e8' }],
       scores: [0, 0],
-      preset: '2',
-      deck: PRESETS['2'].map(c => ({ ...c })),
+      colors: DEFAULT_COLORS.slice(),   // palette name per card position
+      preset: DEFAULT_PRESET.solo,
+      deck: PRESETS[DEFAULT_PRESET.solo].map(c => ({ ...c })),
       order: [],        // deck indices in display order for the current round
       flipped: null,    // display position that was chosen this round, or null
     });
@@ -329,13 +389,27 @@
     if (!state) state = defaultState();
     if (!state.order.length) newRound(false);
 
+    function cleanColors(list) {
+      const out = DEFAULT_COLORS.slice();
+      if (Array.isArray(list)) list.forEach((n, i) => { if (i < MAX_CARDS && PALETTE_BY_NAME[n]) out[i] = n; });
+      return out;
+    }
+    function colorAt(pos, colors = state.colors) {
+      return PALETTE_BY_NAME[colors[pos]] || PALETTE_BY_NAME[DEFAULT_COLORS[pos]] || PALETTE[0];
+    }
+
     function load() {
       try {
         const raw = localStorage.getItem(KEY);
         if (!raw) return null;
         const s = JSON.parse(raw);
         if (!s || !Array.isArray(s.teams) || !Array.isArray(s.deck)) return null;
-        return { ...defaultState(), ...s, timer: { ...DEFAULT_TIMER, ...(s.timer || {}) } };
+        return {
+          ...defaultState(), ...s,
+          useTeams: 'useTeams' in s ? !!s.useTeams : true,   // games saved before this option had teams
+          colors: cleanColors(s.colors),
+          timer: { ...DEFAULT_TIMER, ...(s.timer || {}) },
+        };
       } catch { return null; }
     }
     function save() {
@@ -367,8 +441,17 @@
     const ding = document.getElementById('ding');
     const musicEl = document.getElementById('musicAudio');
 
+    function pointsText(v) { return `${v} point${v === 1 ? '' : 's'}`; }
+    function resultText(pos) {
+      const c = state.deck[state.order[pos]];
+      const color = colorAt(pos).name;
+      return state.useTeams ? `${color}: ${state.teams[c.team].name} +${c.value}` : `${color}: ${pointsText(c.value)}`;
+    }
+
     function renderScoreboard() {
       scoreboard.innerHTML = '';
+      scoreboard.hidden = !state.useTeams;
+      if (!state.useTeams) return;
       state.teams.forEach((t, i) => {
         const div = document.createElement('div');
         div.className = 'team';
@@ -395,25 +478,38 @@
       cardsEl.innerHTML = '';
       state.order.forEach((deckIdx, pos) => {
         const c = state.deck[deckIdx];
-        const team = state.teams[c.team];
+        const color = colorAt(pos);
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'card';
         btn.dataset.pos = pos;
-        btn.setAttribute('aria-label', `Card ${LETTERS[pos]}`);
+        btn.setAttribute('aria-label', `${color.name} card`);
         btn.innerHTML = `
           <div class="inner">
             <div class="face back">
-              <div class="letter">${LETTERS[pos]}</div>
+              <div class="cname"></div>
               <div class="hint">Click to flip</div>
             </div>
             <div class="face front">
-              <div class="pts">+${c.value}</div>
+              <div class="pts"></div>
               <div class="who"></div>
             </div>
           </div>`;
-        btn.querySelector('.front').style.background = team.color;
-        btn.querySelector('.who').textContent = team.name;
+        const back = btn.querySelector('.back'), front = btn.querySelector('.front');
+        back.style.background = color.hex;
+        back.classList.toggle('light', !!color.light);
+        back.querySelector('.cname').textContent = color.name;
+        if (state.useTeams) {
+          const team = state.teams[c.team];
+          front.style.background = team.color;
+          front.querySelector('.pts').textContent = `+${c.value}`;
+          front.querySelector('.who').textContent = team.name;
+        } else {
+          front.style.background = color.hex;
+          front.classList.toggle('light', !!color.light);
+          front.querySelector('.pts').textContent = c.value;
+          front.querySelector('.who').textContent = c.value === 1 ? 'point' : 'points';
+        }
         if (state.flipped !== null) {
           btn.disabled = true;
           btn.classList.add('flipped');
@@ -425,12 +521,7 @@
       const done = state.flipped !== null;
       nextBtn.hidden = !done;
       updateTimerUI();
-      if (done) {
-        const c = state.deck[state.order[state.flipped]];
-        msgEl.textContent = `Card ${LETTERS[state.flipped]}: ${state.teams[c.team].name} +${c.value}`;
-      } else {
-        msgEl.textContent = 'Ask a question, let the kids pick a letter, then flip it.';
-      }
+      msgEl.textContent = done ? resultText(state.flipped) : 'Ask a question, let the kids pick a color, then flip it.';
     }
 
     function renderAll() { renderScoreboard(); renderCards(); }
@@ -444,7 +535,7 @@
       }
       state.flipped = pos;
       const c = state.deck[state.order[pos]];
-      state.scores[c.team] += c.value;
+      if (state.useTeams) state.scores[c.team] += c.value;
       save();
 
       try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {}
@@ -455,13 +546,15 @@
 
       // Update the score when the card is mostly turned over.
       setTimeout(() => {
-        const teamEl = scoreboard.querySelector(`.team[data-team="${c.team}"]`);
-        teamEl.querySelector('.score').textContent = state.scores[c.team];
-        teamEl.classList.remove('pulse'); void teamEl.offsetWidth; teamEl.classList.add('pulse');
-        const gain = teamEl.querySelector('.gain');
-        gain.textContent = `+${c.value}`;
-        gain.classList.remove('show'); void gain.offsetWidth; gain.classList.add('show');
-        msgEl.textContent = `Card ${LETTERS[pos]}: ${state.teams[c.team].name} +${c.value}`;
+        const teamEl = state.useTeams && scoreboard.querySelector(`.team[data-team="${c.team}"]`);
+        if (teamEl) {
+          teamEl.querySelector('.score').textContent = state.scores[c.team];
+          teamEl.classList.remove('pulse'); void teamEl.offsetWidth; teamEl.classList.add('pulse');
+          const gain = teamEl.querySelector('.gain');
+          gain.textContent = `+${c.value}`;
+          gain.classList.remove('show'); void gain.offsetWidth; gain.classList.add('show');
+        }
+        msgEl.textContent = resultText(pos);
       }, 400);
 
       updateTimerUI();
@@ -721,7 +814,7 @@
       resetBtn.textContent = 'Reset game';
     }
 
-    // Keyboard: A–D or 1–4 flips a card, N or Enter starts the next round.
+    // Keyboard: 1–4 flips a card (left to right), N or Enter starts the next round.
     document.addEventListener('keydown', e => {
       if (!setup.hidden || (e.target instanceof Element && e.target.matches('input, select, textarea'))) return;
       if (e.key === ' ' || e.code === 'Space') {
@@ -731,19 +824,24 @@
         return;
       }
       const k = e.key.toUpperCase();
-      let pos = LETTERS.indexOf(k);
-      if (pos < 0 && /^[1-4]$/.test(k)) pos = parseInt(k, 10) - 1;
+      const pos = /^[1-4]$/.test(k) ? parseInt(k, 10) - 1 : -1;
       if (pos >= 0 && pos < state.order.length && state.flipped === null) { flip(pos); return; }
       if ((k === 'N' || e.key === 'Enter') && state.flipped !== null) { newRound(); renderCards(); }
     });
 
     // ---------- setup panel ----------
     const setup = document.getElementById('setup');
+    const useTeamsBox = document.getElementById('useTeams');
+    const teamRows = document.getElementById('teamRows');
+    const noTeamsHelp = document.getElementById('noTeamsHelp');
+    const presetGroups = { teams: document.getElementById('presetsTeams'), solo: document.getElementById('presetsSolo') };
     const customDeck = document.getElementById('customDeck');
     const customCount = document.getElementById('customCount');
     const customRows = document.getElementById('customRows');
+    const colorRows = document.getElementById('colorRows');
     const deckSummary = document.getElementById('deckSummary');
     let draftDeck = [];
+    let draftColors = DEFAULT_COLORS.slice();
     const timerFields = {
       enabled: document.getElementById('timerEnabled'),
       seconds: document.getElementById('timerSeconds'),
@@ -788,21 +886,33 @@
 
     function openSetup() {
       stopTimer();
+      useTeamsBox.checked = !!state.useTeams;
       state.teams.forEach((t, i) => {
         document.getElementById('name' + i).value = t.name;
         document.getElementById('color' + i).value = t.color;
       });
-      document.querySelector(`input[name=preset][value="${state.preset}"]`).checked = true;
       draftDeck = state.deck.map(c => ({ ...c }));
+      draftColors = cleanColors(state.colors);
       customCount.value = String(draftDeck.length);
       fillTimerFields(state.timer);
-      syncPresetUI();
+      selectPreset(state.preset);
+      syncModeUI();
       setup.hidden = false;
-      document.getElementById('name0').focus();
+      (useTeamsBox.checked ? document.getElementById('name0') : useTeamsBox).focus();
     }
     function closeSetup() { setup.hidden = true; clearTimeout(previewId); stopMusic(); }
 
-    function currentPreset() { return document.querySelector('input[name=preset]:checked').value; }
+    function draftMode() { return useTeamsBox.checked ? 'teams' : 'solo'; }
+    function presetRadio(mode, value) { return presetGroups[mode].querySelector(`input[value="${value}"]`); }
+    // Check `value` in the current mode's group, falling back to that mode's default.
+    function selectPreset(value) {
+      const mode = draftMode();
+      (presetRadio(mode, value) || presetRadio(mode, DEFAULT_PRESET[mode])).checked = true;
+    }
+    function currentPreset() {
+      const r = presetGroups[draftMode()].querySelector('input:checked');
+      return r ? r.value : DEFAULT_PRESET[draftMode()];
+    }
     function draftTeamNames() {
       return [0, 1].map(i => document.getElementById('name' + i).value.trim() || (i === 0 ? 'Red' : 'Blue'));
     }
@@ -811,30 +921,55 @@
       return p === 'custom' ? draftDeck : PRESETS[p];
     }
 
+    // Show the controls for the chosen mode (teams or not) and refresh everything below.
+    function syncModeUI() {
+      const teams = useTeamsBox.checked;
+      teamRows.hidden = !teams;
+      noTeamsHelp.hidden = teams;
+      presetGroups.teams.hidden = !teams;
+      presetGroups.solo.hidden = teams;
+      if (!presetGroups[draftMode()].querySelector('input:checked')) selectPreset(DEFAULT_PRESET[draftMode()]);
+      // A deck built without teams has every card on team 1; spread it out when teams come on.
+      if (teams && draftDeck.every(c => c.team === 0)) draftDeck.forEach((c, i) => { c.team = i % 2; });
+      syncPresetUI();
+    }
+
     function syncPresetUI() {
       const p = currentPreset();
       customDeck.hidden = p !== 'custom';
       if (p === 'custom') renderCustomRows();
+      renderColorRows();
       renderSummary();
+    }
+
+    function colorChip(pos) {
+      const color = colorAt(pos, draftColors);
+      const chip = document.createElement('span');
+      chip.className = 'lbl' + (color.light ? ' light' : '');
+      chip.style.background = color.hex;
+      chip.textContent = color.name;
+      return chip;
     }
 
     function renderCustomRows() {
       const n = parseInt(customCount.value, 10);
-      while (draftDeck.length < n) draftDeck.push({ team: draftDeck.length % 2, value: 1 });
+      const teams = useTeamsBox.checked;
+      while (draftDeck.length < n) draftDeck.push({ team: draftDeck.length % 2, value: teams ? 1 : draftDeck.length });
       draftDeck.length = n;
       const names = draftTeamNames();
       customRows.innerHTML = '';
       draftDeck.forEach((c, i) => {
         const row = document.createElement('div');
-        row.className = 'cardrow';
-        row.innerHTML = `
-          <span class="lbl">${LETTERS[i]}</span>
-          <select data-k="team">
+        row.className = 'cardrow' + (teams ? '' : ' solo');
+        row.appendChild(colorChip(i));
+        row.insertAdjacentHTML('beforeend', `
+          <select data-k="team" ${teams ? '' : 'hidden'}>
             <option value="0"></option><option value="1"></option>
           </select>
           <select data-k="value">
-            <option value="1">1 point</option><option value="2">2 points</option>
-          </select>`;
+            <option value="0">0 points</option><option value="1">1 point</option>
+            <option value="2">2 points</option><option value="3">3 points</option>
+          </select>`);
         const teamSel = row.querySelector('[data-k=team]');
         teamSel.options[0].textContent = names[0];
         teamSel.options[1].textContent = names[1];
@@ -850,9 +985,46 @@
       });
     }
 
+    // One row per card position, each with the full palette of swatches.
+    function renderColorRows() {
+      const n = currentDraftDeck().length;
+      colorRows.innerHTML = '';
+      for (let i = 0; i < n; i++) {
+        const row = document.createElement('div');
+        row.className = 'colorrow';
+        row.appendChild(colorChip(i));
+        const sw = document.createElement('div');
+        sw.className = 'swatches';
+        PALETTE.forEach(p => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'swatch' + (draftColors[i] === p.name ? ' on' : '');
+          b.style.background = p.hex;
+          b.title = p.name;
+          b.setAttribute('aria-label', `${p.name} for card ${i + 1}`);
+          b.addEventListener('click', () => pickColor(i, p.name));
+          sw.appendChild(b);
+        });
+        row.appendChild(sw);
+        colorRows.appendChild(row);
+      }
+    }
+    function pickColor(pos, name) {
+      const other = draftColors.indexOf(name);
+      if (other >= 0 && other !== pos) draftColors[other] = draftColors[pos];   // swap so colors stay unique
+      draftColors[pos] = name;
+      if (currentPreset() === 'custom') renderCustomRows();
+      renderColorRows();
+    }
+
     function renderSummary() {
-      const names = draftTeamNames();
       const deck = currentDraftDeck();
+      if (!useTeamsBox.checked) {
+        const values = deck.map(c => c.value).sort((a, b) => a - b);
+        deckSummary.textContent = `${deck.length} cards worth ${values.join(', ')} points.`;
+        return;
+      }
+      const names = draftTeamNames();
       const totals = [0, 0], counts = [0, 0];
       deck.forEach(c => { totals[c.team] += c.value; counts[c.team]++; });
       deckSummary.textContent =
@@ -860,8 +1032,9 @@
         `${names[1]} has ${counts[1]} card${counts[1] === 1 ? '' : 's'} worth ${totals[1]}.`;
     }
 
-    document.querySelectorAll('input[name=preset]').forEach(r => r.addEventListener('change', syncPresetUI));
-    customCount.addEventListener('change', () => { renderCustomRows(); renderSummary(); });
+    useTeamsBox.addEventListener('change', syncModeUI);
+    document.querySelectorAll('.presets input[type=radio]').forEach(r => r.addEventListener('change', syncPresetUI));
+    customCount.addEventListener('change', () => { renderCustomRows(); renderColorRows(); renderSummary(); });
     ['name0', 'name1'].forEach(id => document.getElementById(id).addEventListener('input', () => {
       if (currentPreset() === 'custom') renderCustomRows();
       renderSummary();
@@ -874,7 +1047,9 @@
     });
     document.getElementById('applySetup').addEventListener('click', () => {
       const names = draftTeamNames();
+      state.useTeams = useTeamsBox.checked;
       state.teams = [0, 1].map(i => ({ name: names[i], color: document.getElementById('color' + i).value }));
+      state.colors = draftColors.slice();
       state.preset = currentPreset();
       state.deck = currentDraftDeck().map(c => ({ ...c }));
       state.timer = readTimerFields();
