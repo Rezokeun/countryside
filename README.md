@@ -143,6 +143,8 @@ are always the letters still to place.
 - **Next word** (N, Enter or →) moves on and **◀ Previous** (←) goes back.
   After the last word the list starts over, reshuffled.
 - **Mix again** (M) scrambles the same word a different way.
+- **Reset** hides every revealed letter so the same word can be played
+  again from the start. The scrambled letters stay in the same order.
 
 Phrases work too. Each word in a phrase is scrambled on its own, and
 characters like the apostrophe in "Noah's Ark" or the colon in "John 3:16"

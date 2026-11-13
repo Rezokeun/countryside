@@ -114,7 +114,7 @@
     #roundbar { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 44px; flex-wrap: wrap; }
     #roundbar .msg { color: var(--muted); font-size: .95rem; text-align: center; }
     #progress { color: var(--muted); font-size: .95rem; font-weight: 700; min-width: 7em; }
-    #revealBtn, #nextBtn { font-size: 1.1rem; padding: 10px 22px; }
+    #revealBtn, #nextBtn, #resetBtn { font-size: 1.1rem; padding: 10px 22px; }
     .empty { color: var(--muted); font-size: 1.2rem; text-align: center; }
 
     /* ---------- setup overlay ---------- */
@@ -167,6 +167,7 @@
     <div id="roundbar">
       <span id="progress"></span>
       <span class="msg" id="msg"></span>
+      <button id="resetBtn" title="Hide the revealed letters and start this word over">Reset</button>
       <button id="revealBtn" title="Show the whole word (R)">Reveal word</button>
       <button id="nextBtn" class="primary" title="Next word (N or →)">Next word ▶</button>
     </div>
@@ -340,6 +341,7 @@
     const msgEl = document.getElementById('msg');
     const progressEl = document.getElementById('progress');
     const revealBtn = document.getElementById('revealBtn');
+    const resetBtn = document.getElementById('resetBtn');
     const nextBtn = document.getElementById('nextBtn');
     const prevBtn = document.getElementById('prevBtn');
     const mixBtn = document.getElementById('mixBtn');
@@ -368,7 +370,7 @@
       answerEl.innerHTML = '';
       const word = currentWord();
       const hasWords = state.words.length > 0;
-      revealBtn.hidden = nextBtn.hidden = !hasWords;
+      revealBtn.hidden = nextBtn.hidden = resetBtn.hidden = !hasWords;
       prevBtn.disabled = mixBtn.disabled = !hasWords;
       if (!hasWords) {
         progressEl.textContent = '';
@@ -430,6 +432,7 @@
       const done = allShown();
       progressEl.textContent = `Word ${state.pos + 1} of ${state.order.length}`;
       revealBtn.disabled = done;
+      resetBtn.disabled = !anyRevealed();
       answerEl.querySelectorAll('.slot:not(.fixed)').forEach(el => el.classList.toggle('solved', done));
       if (done) msgEl.textContent = state.pos === state.order.length - 1 ? 'That was the last word. Next starts the list again.' : '';
       else msgEl.textContent = state.hints ? 'Click a box to reveal its letter.' : '';
@@ -512,39 +515,54 @@
         if (ci >= 0) { revealLetter(gi, ci); return; }
       }
     }
-    let revealTimer = null;
+    // Pending steps of a Reveal word animation, so Reset or a new word can cancel them.
+    let revealTimers = [];
+    function cancelReveal() { revealTimers.forEach(clearTimeout); revealTimers = []; }
     function revealWord() {
       if (allShown()) return;
-      clearTimeout(revealTimer);
+      cancelReveal();
       const hidden = [];
       state.revealed.forEach((g, gi) => g.forEach((r, ci) => { if (!r) hidden.push([gi, ci]); }));
       hidden.forEach(([gi, ci]) => { state.revealed[gi][ci] = true; });
       save();
       revealBtn.disabled = true;
+      resetBtn.disabled = false;
       // Flip the remaining boxes one after another for a little drama.
       const step = Math.min(90, 900 / hidden.length);
       hidden.forEach(([gi, ci], i) => {
-        setTimeout(() => {
+        revealTimers.push(setTimeout(() => {
           if (!answerEl.querySelector(`.slot[data-g="${gi}"][data-c="${ci}"]`)) return;
           showSlot(gi, ci);
           refreshTiles();
-        }, i * step);
+        }, i * step));
       });
-      revealTimer = setTimeout(() => { playDing(); updateStatus(); }, hidden.length * step + 150);
+      revealTimers.push(setTimeout(() => { playDing(); updateStatus(); }, hidden.length * step + 150));
     }
 
     function nextWord() {
       if (!state.words.length) return;
-      clearTimeout(revealTimer);
+      cancelReveal();
       if (state.pos < state.order.length - 1) { state.pos++; startWord(); }
       else newOrder(state.order[state.pos]);
       render();
     }
     function prevWord() {
       if (!state.words.length || state.pos === 0) return;
-      clearTimeout(revealTimer);
+      cancelReveal();
       state.pos--;
       startWord();
+      render();
+    }
+    // Any letter box (not punctuation) currently showing.
+    function anyRevealed() {
+      return groupsOf(currentWord()).some((g, gi) => g.some((c, ci) => c.letter && state.revealed[gi] && state.revealed[gi][ci]));
+    }
+    // Hide every revealed letter so the same word can be played again. The scramble stays the same.
+    function resetWord() {
+      if (!state.words.length) return;
+      cancelReveal();
+      state.revealed = groupsOf(currentWord()).map(g => g.map(c => !c.letter));
+      save();
       render();
     }
     function mixAgain() {
@@ -555,6 +573,7 @@
     }
 
     revealBtn.addEventListener('click', revealWord);
+    resetBtn.addEventListener('click', () => { resetWord(); resetBtn.blur(); });
     nextBtn.addEventListener('click', nextWord);
     prevBtn.addEventListener('click', () => { prevWord(); prevBtn.blur(); });
     mixBtn.addEventListener('click', () => { mixAgain(); mixBtn.blur(); });
