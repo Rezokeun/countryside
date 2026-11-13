@@ -142,6 +142,9 @@ are always the letters still to place.
   once the whole word is showing.
 - **Next word** (N, Enter or →) moves on and **◀ Previous** (←) goes back.
   After the last word the list starts over, reshuffled.
+- Click **Word 3 of 12** (or press G) to jump to any word by number. The
+  picker shows only numbers, never the words, so the class can't see what's
+  coming. The word opens with its letters hidden.
 - **Mix again** (M) scrambles the same word a different way.
 - **Reset** hides every revealed letter so the same word can be played
   again from the start. The scrambled letters stay in the same order.

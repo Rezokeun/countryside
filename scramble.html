@@ -113,8 +113,22 @@
 
     #roundbar { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 44px; flex-wrap: wrap; }
     #roundbar .msg { color: var(--muted); font-size: .95rem; text-align: center; }
-    #progress { color: var(--muted); font-size: .95rem; font-weight: 700; min-width: 7em; }
-    #revealBtn, #nextBtn, #resetBtn { font-size: 1.1rem; padding: 10px 22px; }
+    #revealBtn, #nextBtn, #resetBtn, #prevBtn { font-size: 1.1rem; padding: 10px 22px; }
+    /* Word number picker: shows numbers only, never the words, so the class can't see what's coming. */
+    .jump { position: relative; }
+    #progress { color: var(--muted); font-size: .95rem; font-weight: 700; padding: 10px 14px; }
+    #progress::after { content: " ▾"; font-size: .8em; }
+    #jumpMenu {
+      position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 10;
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25); padding: 12px;
+      width: max-content; max-width: min(440px, calc(100vw - 32px)); max-height: 55vh; overflow: auto;
+    }
+    #jumpMenu[hidden] { display: none; }
+    .jtitle { color: var(--muted); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+    .jgrid { display: grid; grid-template-columns: repeat(auto-fill, 46px); gap: 6px; min-width: 46px; width: min(400px, calc(100vw - 58px)); }
+    .jgrid button { padding: 8px 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .jgrid button.current { background: var(--accent); border-color: var(--accent); color: #fff; }
     .empty { color: var(--muted); font-size: 1.2rem; text-align: center; }
 
     /* ---------- setup overlay ---------- */
@@ -156,7 +170,6 @@
     <a href="index.html">All pages</a>
     <button id="setupBtn">Setup</button>
     <button id="mixBtn" title="Mix the letters again (M)">Mix again</button>
-    <button id="prevBtn" title="Previous word (←)">◀ Previous</button>
     <button id="hideBar" title="Hide the top bar (H)" aria-label="Hide the top bar">▲</button>
   </header>
   <button id="showBar" hidden title="Show the top bar (H)">▼ Menu</button>
@@ -165,10 +178,17 @@
     <section id="scrambled" class="row-area" aria-label="Scrambled letters"></section>
     <section id="answer" class="row-area" aria-label="Answer"></section>
     <div id="roundbar">
-      <span id="progress"></span>
+      <div class="jump">
+        <button id="progress" title="Jump to a word by number (G)" aria-haspopup="true" aria-expanded="false"></button>
+        <div id="jumpMenu" hidden>
+          <div class="jtitle">Go to word</div>
+          <div class="jgrid" id="jumpGrid"></div>
+        </div>
+      </div>
       <span class="msg" id="msg"></span>
       <button id="resetBtn" title="Hide the revealed letters and start this word over">Reset</button>
       <button id="revealBtn" title="Show the whole word (R)">Reveal word</button>
+      <button id="prevBtn" title="Previous word (←)">◀ Previous</button>
       <button id="nextBtn" class="primary" title="Next word (N or →)">Next word ▶</button>
     </div>
   </main>
@@ -370,8 +390,9 @@
       answerEl.innerHTML = '';
       const word = currentWord();
       const hasWords = state.words.length > 0;
-      revealBtn.hidden = nextBtn.hidden = resetBtn.hidden = !hasWords;
-      prevBtn.disabled = mixBtn.disabled = !hasWords;
+      revealBtn.hidden = nextBtn.hidden = resetBtn.hidden = prevBtn.hidden = progressEl.hidden = !hasWords;
+      mixBtn.disabled = !hasWords;
+      closeJump();
       if (!hasWords) {
         progressEl.textContent = '';
         msgEl.textContent = '';
@@ -431,6 +452,7 @@
     function updateStatus() {
       const done = allShown();
       progressEl.textContent = `Word ${state.pos + 1} of ${state.order.length}`;
+      prevBtn.disabled = state.pos === 0;
       revealBtn.disabled = done;
       resetBtn.disabled = !anyRevealed();
       answerEl.querySelectorAll('.slot:not(.fixed)').forEach(el => el.classList.toggle('solved', done));
@@ -553,6 +575,40 @@
       startWord();
       render();
     }
+    // Go straight to word number n (1-based, in play order) with its letters hidden.
+    function goToWord(n) {
+      if (!state.words.length || n < 1 || n > state.order.length) return;
+      cancelReveal();
+      if (n - 1 !== state.pos) { state.pos = n - 1; startWord(); }
+      render();
+    }
+    const jumpMenu = document.getElementById('jumpMenu');
+    const jumpGrid = document.getElementById('jumpGrid');
+    function openJump() {
+      if (!state.words.length) return;
+      jumpGrid.innerHTML = '';
+      state.order.forEach((_, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = i + 1;
+        b.setAttribute('aria-label', `Word ${i + 1}`);
+        if (i === state.pos) b.classList.add('current');
+        b.addEventListener('click', () => goToWord(i + 1));
+        jumpGrid.appendChild(b);
+      });
+      jumpMenu.hidden = false;
+      progressEl.setAttribute('aria-expanded', 'true');
+      const cur = jumpGrid.querySelector('.current');
+      if (cur) { cur.scrollIntoView({ block: 'nearest' }); cur.focus(); }
+    }
+    function closeJump() {
+      jumpMenu.hidden = true;
+      progressEl.setAttribute('aria-expanded', 'false');
+    }
+    progressEl.addEventListener('click', e => { e.stopPropagation(); jumpMenu.hidden ? openJump() : closeJump(); });
+    jumpMenu.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', () => { if (!jumpMenu.hidden) closeJump(); });
+
     // Any letter box (not punctuation) currently showing.
     function anyRevealed() {
       return groupsOf(currentWord()).some((g, gi) => g.some((c, ci) => c.letter && state.revealed[gi] && state.revealed[gi][ci]));
@@ -578,10 +634,14 @@
     prevBtn.addEventListener('click', () => { prevWord(); prevBtn.blur(); });
     mixBtn.addEventListener('click', () => { mixAgain(); mixBtn.blur(); });
 
-    // Keyboard: space reveals the next letter, R reveals the word, N/Enter/→ next word, ← previous, M mixes again, H hides or shows the top bar.
+    // Keyboard: space reveals the next letter, R reveals the word, N/Enter/→ next word, ← previous, G picks a word by number, M mixes again, H hides or shows the top bar.
     document.addEventListener('keydown', e => {
       if (!setup.hidden || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.target instanceof Element && e.target.matches('input, select, textarea')) return;
+      if (!jumpMenu.hidden) {
+        if (e.key === 'Escape') { closeJump(); progressEl.focus(); }
+        return; // the number buttons handle Enter and space themselves
+      }
       const onButton = e.target instanceof Element && e.target.matches('button');
       if (e.key === ' ' || e.code === 'Space') {
         if (onButton) return; // let the button handle it
@@ -594,6 +654,7 @@
       if (k === 'R') revealWord();
       else if (k === 'N') nextWord();
       else if (k === 'M') mixAgain();
+      else if (k === 'G') { e.preventDefault(); openJump(); }
       else if (k === 'H') setBarHidden(!document.body.classList.contains('bar-hidden'));
     });
 
