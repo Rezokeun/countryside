@@ -16,6 +16,7 @@ next. Everything is random each round so kids cannot learn a "safe" spot.
 | `index.html` | Landing page that links to every game |
 | `cardflip.html` | Card Flip review game (see below) |
 | `pose.html` | Strike a Pose review game (see below) |
+| `scramble.html` | Word Scramble review game (see below) |
 | `bingo.html` | Bingo card creator and printer |
 | `sundayschool_colorpicker.html` | Color Picker game with four colors |
 | `sundayschool_colorpicker6.html` | Color Picker game with six colors |
@@ -123,6 +124,44 @@ Click **Setup** in the top bar.
 
 The ▲ button hides the top bar and the faint **Menu** tab or the H key brings
 it back, as in Card Flip.
+
+## Word Scramble
+
+The letters of a word are shown mixed up in the top half of the screen. The
+bottom half has an empty box for each letter of the real word. Click any box
+to reveal the letter that belongs there, in any order, until the class guesses
+the word, or click **Reveal word** to show the rest at once. Each revealed
+letter fades out one matching tile in the scrambled row, so the leftover tiles
+are always the letters still to place.
+
+### Playing
+
+- Click a box, or press the space bar to reveal the next hidden letter from
+  the left.
+- **Reveal word** (or R) shows every remaining letter. The boxes turn green
+  once the whole word is showing.
+- **Next word** (N, Enter or →) moves on and **◀ Previous** (←) goes back.
+  After the last word the list starts over, reshuffled.
+- **Mix again** (M) scrambles the same word a different way.
+
+Phrases work too. Each word in a phrase is scrambled on its own, and
+characters like the apostrophe in "Noah's Ark" or the colon in "John 3:16"
+are shown in place rather than mixed in. Long phrases shrink to fit the screen.
+
+### Setup options
+
+- **Words.** Type one word or phrase per line, or click **Load CSV file…**
+  to fill the list from a file. The file's first column is used, or every cell
+  if the file is a single row. Commas, semicolons and tabs all work as
+  separators. Check the list after loading and delete a heading row if there is
+  one. Duplicates are skipped.
+- **Order.** Shuffle the order of the words, or play them in list order.
+- **Letters.** Show the letters in capitals, or as typed.
+- **Sounds** and **Hints** turn the reveal sounds and the "Click a box to
+  reveal its letter" prompt on or off.
+
+The ▲ button hides the top bar and the faint **Menu** tab or the H key brings
+it back, as in the other games.
 
 ## Bingo Card Creator
 

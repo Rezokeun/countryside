@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word Scramble Review Game</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #1c1e21;
+      --muted: #5f6368;
+      --accent: #3b6ef5;
+      --border: #e1e4e8;
+      --tile: #fff3c4;
+      --tile-edge: #e0b100;
+      --tile-text: #3a2a00;
+      --slot: #9aa0a6;
+      --solved: #2e9e44;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121417;
+        --card: #1c1f24;
+        --text: #e8eaed;
+        --muted: #9aa0a6;
+        --accent: #7aa2ff;
+        --border: #2b2f36;
+        --tile: #3a3220;
+        --tile-edge: #b98f00;
+        --tile-text: #ffd166;
+        --slot: #5f6368;
+        --solved: #3fb95a;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ---------- top bar ---------- */
+    header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px;
+      background: var(--card); border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 1.1rem; margin: 0; flex: 1; }
+    body.bar-hidden header { display: none; }
+    #hideBar { padding: 7px 9px; color: var(--muted); }
+    #showBar {
+      position: fixed; top: 0; right: 12px; z-index: 15;
+      padding: 2px 12px 4px; border-radius: 0 0 9px 9px; border-top: none;
+      font-size: .8rem; color: var(--muted); opacity: .35; transition: opacity .2s;
+    }
+    #showBar:hover, #showBar:focus-visible { opacity: 1; }
+    #showBar[hidden] { display: none; }
+    header a { color: var(--muted); text-decoration: none; font-size: .9rem; }
+    header a:hover { color: var(--accent); }
+    button {
+      font: inherit; font-size: .9rem; padding: 7px 12px; border-radius: 7px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--card); color: var(--text);
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    button:disabled { opacity: .5; cursor: default; }
+
+    /* ---------- play area ---------- */
+    /* --s is the tile size, set from script so the longest word fits. */
+    main {
+      flex: 1; display: flex; flex-direction: column; padding: 12px 16px 16px; gap: 12px; min-height: 0;
+      --s: 80px; --gap: 10px; --wgap: 44px; --rgap: 20px;
+    }
+    .row-area {
+      flex: 1 1 0; min-height: 0; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: center;
+      column-gap: var(--wgap); row-gap: var(--rgap);
+    }
+    #answer { border-top: 2px dashed var(--border); padding-top: 12px; }
+    .group { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--gap); }
+    .tile, .slot {
+      width: var(--s); height: var(--s); border-radius: calc(var(--s) * .16);
+      display: flex; align-items: center; justify-content: center;
+      font-size: calc(var(--s) * .62); font-weight: 800; line-height: 1;
+    }
+    body.caps .tile, body.caps .slot { text-transform: uppercase; }
+    .tile {
+      background: var(--tile); color: var(--tile-text);
+      border: calc(var(--s) * .05) solid var(--tile-edge);
+      box-shadow: 0 calc(var(--s) * .06) 0 var(--tile-edge), 0 6px 14px rgba(0,0,0,.15);
+      transition: opacity .35s, transform .35s;
+    }
+    .tile.used { opacity: .22; transform: scale(.88); box-shadow: none; }
+    .slot {
+      border: calc(var(--s) * .05) dashed var(--slot); background: transparent; color: transparent;
+      padding: 0; cursor: pointer; font-family: inherit;
+    }
+    .slot:hover:not(.shown), .slot:focus-visible:not(.shown) { border-color: var(--accent); border-style: solid; outline: none; }
+    .slot .q { color: var(--slot); font-size: .5em; opacity: .6; }
+    body.no-hints .slot .q { display: none; }
+    .slot:disabled { opacity: 1; }
+    .slot.shown { border-style: solid; border-color: var(--accent); background: var(--accent); color: #fff; cursor: default; }
+    .slot.shown .q { display: none; }
+    .slot.pop { animation: pop .45s cubic-bezier(.2,.7,.2,1.4); }
+    @keyframes pop { 0% { transform: rotateY(90deg) scale(.8); } 100% { transform: none; } }
+    .slot.solved { background: var(--solved); border-color: var(--solved); }
+    .slot.fixed { width: auto; min-width: calc(var(--s) * .3); border: none; background: none; color: var(--text); cursor: default; }
+
+    #roundbar { display: flex; justify-content: center; align-items: center; gap: 12px; min-height: 44px; flex-wrap: wrap; }
+    #roundbar .msg { color: var(--muted); font-size: .95rem; text-align: center; }
+    #progress { color: var(--muted); font-size: .95rem; font-weight: 700; min-width: 7em; }
+    #revealBtn, #nextBtn { font-size: 1.1rem; padding: 10px 22px; }
+    .empty { color: var(--muted); font-size: 1.2rem; text-align: center; }
+
+    /* ---------- setup overlay ---------- */
+    #setup {
+      position: fixed; inset: 0; background: rgba(0,0,0,.55);
+      display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 20;
+    }
+    #setup[hidden] { display: none; }
+    .panel {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      width: 100%; max-width: 560px; max-height: 92vh; overflow: auto;
+      padding: 20px;
+    }
+    .panel h2 { margin: 0 0 14px; font-size: 1.25rem; }
+    .panel h3 { margin: 18px 0 8px; font-size: .95rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .row + .row { margin-top: 8px; }
+    .row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    textarea {
+      width: 100%; min-height: 180px; resize: vertical;
+      font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px;
+      background: var(--bg); color: var(--text); line-height: 1.4;
+    }
+    .summary { color: var(--muted); font-size: .9rem; margin: 8px 0 0; }
+    .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .help { color: var(--muted); font-size: .85rem; margin: 6px 0 0; line-height: 1.4; }
+    .warn { color: #d93025; }
+    #fileInput { display: none; }
+
+    @media (max-width: 600px) {
+      header { flex-wrap: wrap; }
+      header h1 { flex-basis: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Word Scramble</h1>
+    <a href="index.html">All pages</a>
+    <button id="setupBtn">Setup</button>
+    <button id="mixBtn" title="Mix the letters again (M)">Mix again</button>
+    <button id="prevBtn" title="Previous word (←)">◀ Previous</button>
+    <button id="hideBar" title="Hide the top bar (H)" aria-label="Hide the top bar">▲</button>
+  </header>
+  <button id="showBar" hidden title="Show the top bar (H)">▼ Menu</button>
+
+  <main>
+    <section id="scrambled" class="row-area" aria-label="Scrambled letters"></section>
+    <section id="answer" class="row-area" aria-label="Answer"></section>
+    <div id="roundbar">
+      <span id="progress"></span>
+      <span class="msg" id="msg"></span>
+      <button id="revealBtn" title="Show the whole word (R)">Reveal word</button>
+      <button id="nextBtn" class="primary" title="Next word (N or →)">Next word ▶</button>
+    </div>
+  </main>
+
+  <div id="setup" hidden>
+    <div class="panel">
+      <h2>Game setup</h2>
+
+      <h3>Words</h3>
+      <textarea id="wordsBox" spellcheck="false" placeholder="One word or phrase per line, for example:&#10;Bethlehem&#10;Noah's Ark&#10;Disciples"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button type="button" id="loadCsv">Load CSV file…</button>
+        <button type="button" id="clearWords">Clear list</button>
+        <input type="file" id="fileInput" accept=".csv,.txt,text/csv,text/plain">
+      </div>
+      <p class="summary" id="summary"></p>
+      <p class="help">Type one word or phrase per line. A CSV file replaces the list with the words in its first column, or every cell if the file is a single row. You can edit the list after loading it, for example to remove a heading.</p>
+
+      <h3>Order</h3>
+      <div class="row"><label><input type="checkbox" id="shuffleOrder"> Shuffle the order of the words</label></div>
+
+      <h3>Letters</h3>
+      <div class="row"><label><input type="checkbox" id="caps"> Show letters in capitals</label></div>
+
+      <h3>Sounds</h3>
+      <div class="row"><label><input type="checkbox" id="sound"> Play a sound when letters are revealed</label></div>
+
+      <h3>Hints</h3>
+      <div class="row"><label><input type="checkbox" id="showHints"> Show hints like “Click a box to reveal its letter”</label></div>
+
+      <div class="actions">
+        <button id="cancelSetup">Cancel</button>
+        <button id="applySetup" class="primary">Save &amp; start</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="ding" src="ding.mp3" preload="auto"></audio>
+
+  <script>
+    const KEY = 'scramble.v1';
+    const MAX_WORDS = 500;
+    const MAX_LEN = 40;
+    const SAMPLE = ['Bethlehem', 'Disciples', 'Moses', 'Noah', 'Prayer', 'Shepherd'];
+    const isLetter = ch => /[\p{L}\p{N}]/u.test(ch);
+
+    const defaultState = () => ({
+      words: SAMPLE.slice(),
+      shuffleOrder: true,
+      caps: true,
+      sound: true,
+      hints: true,
+      order: [],       // indexes into words, in play order
+      pos: 0,          // position in order
+      scramble: [],    // one array of letters per word group, in mixed-up order
+      revealed: [],    // one array of booleans per word group, per character
+    });
+
+    // ---------- words ----------
+    function cleanWords(list) {
+      const out = [], seen = new Set();
+      (Array.isArray(list) ? list : []).forEach(w => {
+        if (typeof w !== 'string') return;
+        w = w.replace(/\s+/g, ' ').trim().slice(0, MAX_LEN);
+        const key = w.toLowerCase();
+        if (!w || ![...w].some(isLetter) || seen.has(key) || out.length >= MAX_WORDS) return;
+        seen.add(key); out.push(w);
+      });
+      return out;
+    }
+    // A word or phrase as groups (split on spaces) of characters. Letters and digits get a box; other characters like ' or - are shown as they are.
+    function groupsOf(word) {
+      return word.split(' ').filter(Boolean).map(g => [...g].map(ch => ({ ch, letter: isLetter(ch) })));
+    }
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+    // Mix the letters of each group, trying not to land on the real spelling.
+    function scrambleWord(word) {
+      return groupsOf(word).map(g => {
+        const letters = g.filter(c => c.letter).map(c => c.ch);
+        const plain = letters.join('').toLowerCase();
+        let mixed = letters;
+        if (new Set(plain).size > 1) {
+          for (let tries = 0; tries < 30; tries++) {
+            mixed = shuffle(letters);
+            if (mixed.join('').toLowerCase() !== plain) break;
+          }
+        }
+        return mixed;
+      });
+    }
+
+    // ---------- state ----------
+    let state = load();
+    let firstRun = !state;
+    if (!state) state = defaultState();
+    if (!state.order.length || !validRound()) newOrder();
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return null;
+        const s = JSON.parse(raw);
+        if (!s || !Array.isArray(s.words)) return null;
+        const words = cleanWords(s.words);
+        const order = Array.isArray(s.order) ? s.order.filter(i => Number.isInteger(i) && i >= 0 && i < words.length) : [];
+        return {
+          ...defaultState(), ...s,
+          words,
+          shuffleOrder: 'shuffleOrder' in s ? !!s.shuffleOrder : true,
+          caps: 'caps' in s ? !!s.caps : true,
+          sound: 'sound' in s ? !!s.sound : true,
+          hints: 'hints' in s ? !!s.hints : true,
+          order: order.length === words.length ? order : [],
+          pos: Number.isInteger(s.pos) && s.pos >= 0 && s.pos < words.length ? s.pos : 0,
+          scramble: Array.isArray(s.scramble) ? s.scramble : [],
+          revealed: Array.isArray(s.revealed) ? s.revealed : [],
+        };
+      } catch { return null; }
+    }
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+    }
+
+    function currentWord() { return state.words[state.order[state.pos]] || ''; }
+
+    // The saved scramble must still match the current word (same groups, same letters).
+    function validRound() {
+      const word = currentWord();
+      if (!word) return false;
+      const groups = groupsOf(word);
+      if (state.scramble.length !== groups.length || state.revealed.length !== groups.length) return false;
+      return groups.every((g, gi) => {
+        const want = g.filter(c => c.letter).map(c => c.ch).sort().join('');
+        const have = state.scramble[gi];
+        return Array.isArray(have) && have.slice().sort().join('') === want &&
+          Array.isArray(state.revealed[gi]) && state.revealed[gi].length === g.length;
+      });
+    }
+
+    function newOrder(avoidFirst = -1) {
+      let order = state.words.map((_, i) => i);
+      if (state.shuffleOrder) {
+        order = shuffle(order);
+        // Don't start the next pass with the word that was just played.
+        if (order.length > 1 && order[0] === avoidFirst) [order[0], order[1]] = [order[1], order[0]];
+      }
+      state.order = order;
+      state.pos = 0;
+      startWord();
+    }
+    function startWord() {
+      const word = currentWord();
+      state.scramble = word ? scrambleWord(word) : [];
+      state.revealed = groupsOf(word).map(g => g.map(c => !c.letter));
+      save();
+    }
+
+    // ---------- rendering ----------
+    const mainEl = document.querySelector('main');
+    const scrambledEl = document.getElementById('scrambled');
+    const answerEl = document.getElementById('answer');
+    const msgEl = document.getElementById('msg');
+    const progressEl = document.getElementById('progress');
+    const revealBtn = document.getElementById('revealBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const mixBtn = document.getElementById('mixBtn');
+    const ding = document.getElementById('ding');
+
+    const allShown = () => state.revealed.length > 0 && state.revealed.every(g => g.every(Boolean));
+
+    // Which scrambled tiles are used up: each revealed letter crosses off one matching tile in its group.
+    function usedTiles() {
+      const groups = groupsOf(currentWord());
+      return state.scramble.map((tiles, gi) => {
+        const used = tiles.map(() => false);
+        (groups[gi] || []).forEach((c, ci) => {
+          if (!c.letter || !state.revealed[gi][ci]) return;
+          const k = tiles.findIndex((t, ti) => !used[ti] && t.toLowerCase() === c.ch.toLowerCase());
+          if (k >= 0) used[k] = true;
+        });
+        return used;
+      });
+    }
+
+    function render() {
+      document.body.classList.toggle('no-hints', !state.hints);
+      document.body.classList.toggle('caps', !!state.caps);
+      scrambledEl.innerHTML = '';
+      answerEl.innerHTML = '';
+      const word = currentWord();
+      const hasWords = state.words.length > 0;
+      revealBtn.hidden = nextBtn.hidden = !hasWords;
+      prevBtn.disabled = mixBtn.disabled = !hasWords;
+      if (!hasWords) {
+        progressEl.textContent = '';
+        msgEl.textContent = '';
+        scrambledEl.innerHTML = '<p class="empty">No words yet. Click <strong>Setup</strong> to type a list or load a CSV file.</p>';
+        return;
+      }
+      const groups = groupsOf(word);
+      const used = usedTiles();
+      state.scramble.forEach((tiles, gi) => {
+        const g = document.createElement('div');
+        g.className = 'group';
+        tiles.forEach((t, ti) => {
+          const el = document.createElement('div');
+          el.className = 'tile' + (used[gi][ti] ? ' used' : '');
+          el.textContent = t;
+          g.appendChild(el);
+        });
+        scrambledEl.appendChild(g);
+      });
+      let n = 0;
+      groups.forEach((chars, gi) => {
+        const g = document.createElement('div');
+        g.className = 'group';
+        chars.forEach((c, ci) => {
+          if (!c.letter) {
+            const el = document.createElement('div');
+            el.className = 'slot fixed shown';
+            el.textContent = c.ch;
+            g.appendChild(el);
+            return;
+          }
+          n++;
+          const el = document.createElement('button');
+          el.type = 'button';
+          el.className = 'slot';
+          el.dataset.g = gi; el.dataset.c = ci;
+          el.setAttribute('aria-label', `Letter ${n}`);
+          el.addEventListener('click', () => revealLetter(gi, ci));
+          g.appendChild(el);
+          paintSlot(el, gi, ci);
+        });
+        answerEl.appendChild(g);
+      });
+      fit();
+      updateStatus();
+    }
+
+    function paintSlot(el, gi, ci) {
+      const c = groupsOf(currentWord())[gi][ci];
+      const shown = state.revealed[gi][ci];
+      el.classList.toggle('shown', shown);
+      el.disabled = shown;
+      if (shown) el.textContent = c.ch;
+      else el.innerHTML = '<span class="q">?</span>';
+    }
+
+    function updateStatus() {
+      const done = allShown();
+      progressEl.textContent = `Word ${state.pos + 1} of ${state.order.length}`;
+      revealBtn.disabled = done;
+      answerEl.querySelectorAll('.slot:not(.fixed)').forEach(el => el.classList.toggle('solved', done));
+      if (done) msgEl.textContent = state.pos === state.order.length - 1 ? 'That was the last word. Next starts the list again.' : '';
+      else msgEl.textContent = state.hints ? 'Click a box to reveal its letter.' : '';
+    }
+
+    // Pick the biggest tile size where every word group fits in both rows.
+    function fit() {
+      const lens = groupsOf(currentWord()).map(g => g.length);
+      if (!lens.length) return;
+      const W = answerEl.clientWidth;
+      const H = Math.min(scrambledEl.clientHeight, answerEl.clientHeight - 14);
+      const fits = (s, allowSplit) => {
+        const gap = Math.round(s * .12), wgap = Math.round(s * .55), rgap = Math.round(s * .25);
+        let lines = 0, x = 0;
+        for (const n of lens) {
+          const per = Math.max(1, Math.floor((W + gap) / (s + gap)));
+          const rows = Math.ceil(n / per);
+          const w = Math.min(n, per) * (s + gap) - gap;
+          // A word too wide for one line only wraps onto several when nothing else works.
+          if (rows > 1) { if (!allowSplit) return false; lines += rows; x = W; continue; }
+          if (!x) { lines++; x = w; }
+          else if (x + wgap + w <= W) x += wgap + w;
+          else { lines++; x = w; }
+        }
+        return lines * s + (lines - 1) * rgap <= H;
+      };
+      const largest = allowSplit => { for (let s = 200; s >= 18; s -= 2) if (fits(s, allowSplit)) return s; return 0; };
+      let s = largest(false);
+      if (s < 36) s = Math.max(s, largest(true), 18);
+      mainEl.style.setProperty('--s', s + 'px');
+      mainEl.style.setProperty('--gap', Math.round(s * .12) + 'px');
+      mainEl.style.setProperty('--wgap', Math.round(s * .55) + 'px');
+      mainEl.style.setProperty('--rgap', Math.round(s * .25) + 'px');
+    }
+    window.addEventListener('resize', fit);
+
+    // ---------- game actions ----------
+    let audioCtx = null;
+    function blip(freq) {
+      if (!state.sound) return;
+      try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const t = audioCtx.currentTime, o = audioCtx.createOscillator(), g = audioCtx.createGain();
+        o.type = 'triangle'; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(freq * 1.5, t + .08);
+        g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.25, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + .18);
+        o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t + .2);
+      } catch {}
+    }
+    function playDing() {
+      if (state.sound) { try { ding.currentTime = 0; ding.play().catch(() => {}); } catch {} }
+    }
+
+    function showSlot(gi, ci, animate = true) {
+      state.revealed[gi][ci] = true;
+      const el = answerEl.querySelector(`.slot[data-g="${gi}"][data-c="${ci}"]`);
+      if (!el) return;
+      paintSlot(el, gi, ci);
+      if (animate) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+    }
+    function refreshTiles() {
+      const used = usedTiles();
+      scrambledEl.querySelectorAll('.group').forEach((g, gi) => {
+        g.querySelectorAll('.tile').forEach((t, ti) => t.classList.toggle('used', !!used[gi][ti]));
+      });
+    }
+
+    function revealLetter(gi, ci) {
+      if (state.revealed[gi][ci]) return;
+      showSlot(gi, ci);
+      refreshTiles();
+      save();
+      if (allShown()) { playDing(); updateStatus(); }
+      else { blip(660); updateStatus(); }
+    }
+    // Reveal the first hidden letter, left to right.
+    function revealNext() {
+      for (let gi = 0; gi < state.revealed.length; gi++) {
+        const ci = state.revealed[gi].indexOf(false);
+        if (ci >= 0) { revealLetter(gi, ci); return; }
+      }
+    }
+    let revealTimer = null;
+    function revealWord() {
+      if (allShown()) return;
+      clearTimeout(revealTimer);
+      const hidden = [];
+      state.revealed.forEach((g, gi) => g.forEach((r, ci) => { if (!r) hidden.push([gi, ci]); }));
+      hidden.forEach(([gi, ci]) => { state.revealed[gi][ci] = true; });
+      save();
+      revealBtn.disabled = true;
+      // Flip the remaining boxes one after another for a little drama.
+      const step = Math.min(90, 900 / hidden.length);
+      hidden.forEach(([gi, ci], i) => {
+        setTimeout(() => {
+          if (!answerEl.querySelector(`.slot[data-g="${gi}"][data-c="${ci}"]`)) return;
+          showSlot(gi, ci);
+          refreshTiles();
+        }, i * step);
+      });
+      revealTimer = setTimeout(() => { playDing(); updateStatus(); }, hidden.length * step + 150);
+    }
+
+    function nextWord() {
+      if (!state.words.length) return;
+      clearTimeout(revealTimer);
+      if (state.pos < state.order.length - 1) { state.pos++; startWord(); }
+      else newOrder(state.order[state.pos]);
+      render();
+    }
+    function prevWord() {
+      if (!state.words.length || state.pos === 0) return;
+      clearTimeout(revealTimer);
+      state.pos--;
+      startWord();
+      render();
+    }
+    function mixAgain() {
+      if (!state.words.length) return;
+      state.scramble = scrambleWord(currentWord());
+      save();
+      render();
+    }
+
+    revealBtn.addEventListener('click', revealWord);
+    nextBtn.addEventListener('click', nextWord);
+    prevBtn.addEventListener('click', () => { prevWord(); prevBtn.blur(); });
+    mixBtn.addEventListener('click', () => { mixAgain(); mixBtn.blur(); });
+
+    // Keyboard: space reveals the next letter, R reveals the word, N/Enter/→ next word, ← previous, M mixes again, H hides or shows the top bar.
+    document.addEventListener('keydown', e => {
+      if (!setup.hidden || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.target instanceof Element && e.target.matches('input, select, textarea')) return;
+      const onButton = e.target instanceof Element && e.target.matches('button');
+      if (e.key === ' ' || e.code === 'Space') {
+        if (onButton) return; // let the button handle it
+        e.preventDefault(); revealNext(); return;
+      }
+      if (e.key === 'Enter') { if (!onButton) nextWord(); return; }
+      if (e.key === 'ArrowRight') { nextWord(); return; }
+      if (e.key === 'ArrowLeft') { prevWord(); return; }
+      const k = e.key.toUpperCase();
+      if (k === 'R') revealWord();
+      else if (k === 'N') nextWord();
+      else if (k === 'M') mixAgain();
+      else if (k === 'H') setBarHidden(!document.body.classList.contains('bar-hidden'));
+    });
+
+    // ---------- CSV ----------
+    function parseCSV(text) {
+      text = text.replace(/^﻿/, '');
+      const first = text.split(/\r?\n/, 1)[0];
+      const counts = [',', ';', '\t'].map(d => [d, first.split(d).length]);
+      const delim = counts.sort((a, b) => b[1] - a[1])[0][0];
+      const rows = []; let row = [], field = '', quoted = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (quoted) {
+          if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+          else if (ch === '"') quoted = false;
+          else field += ch;
+        } else if (ch === '"' && field === '') quoted = true;
+        else if (ch === delim) { row.push(field); field = ''; }
+        else if (ch === '\n' || ch === '\r') {
+          if (ch === '\r' && text[i + 1] === '\n') i++;
+          row.push(field); rows.push(row); row = []; field = '';
+        } else field += ch;
+      }
+      if (field || row.length) { row.push(field); rows.push(row); }
+      const filled = rows.map(r => r.map(c => c.trim())).filter(r => r.some(Boolean));
+      if (filled.length === 1) return filled[0].filter(Boolean);
+      return filled.map(r => r.find(Boolean));
+    }
+
+    // ---------- setup panel ----------
+    const setup = document.getElementById('setup');
+    const wordsBox = document.getElementById('wordsBox');
+    const summary = document.getElementById('summary');
+    const fileInput = document.getElementById('fileInput');
+    let loadedNote = '';
+
+    const draftWords = () => cleanWords(wordsBox.value.split(/\r?\n/));
+    function renderSummary() {
+      const raw = wordsBox.value.split(/\r?\n/).map(w => w.trim()).filter(Boolean);
+      const words = draftWords();
+      summary.classList.toggle('warn', !words.length);
+      if (!words.length) { summary.textContent = (loadedNote ? loadedNote + ' ' : '') + 'Add at least one word.'; return; }
+      let text = `${words.length} word${words.length === 1 ? '' : 's'}.`;
+      const dropped = raw.length - words.length;
+      if (dropped > 0) text += ` ${dropped} duplicate or empty line${dropped === 1 ? ' is' : 's are'} skipped.`;
+      if (raw.length > MAX_WORDS) text += ` Only the first ${MAX_WORDS} are used.`;
+      summary.textContent = (loadedNote ? loadedNote + ' ' : '') + text;
+    }
+    wordsBox.addEventListener('input', () => { loadedNote = ''; renderSummary(); });
+
+    document.getElementById('loadCsv').addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const words = cleanWords(parseCSV(String(reader.result || '')));
+        if (!words.length) { loadedNote = `No words found in ${file.name}.`; renderSummary(); return; }
+        wordsBox.value = words.join('\n');
+        loadedNote = `Loaded ${file.name}.`;
+        renderSummary();
+      };
+      reader.onerror = () => { loadedNote = `Could not read ${file.name}.`; renderSummary(); };
+      reader.readAsText(file);
+    });
+    document.getElementById('clearWords').addEventListener('click', () => { wordsBox.value = ''; loadedNote = ''; renderSummary(); wordsBox.focus(); });
+
+    function openSetup() {
+      wordsBox.value = state.words.join('\n');
+      document.getElementById('shuffleOrder').checked = !!state.shuffleOrder;
+      document.getElementById('caps').checked = !!state.caps;
+      document.getElementById('sound').checked = !!state.sound;
+      document.getElementById('showHints').checked = !!state.hints;
+      loadedNote = '';
+      renderSummary();
+      setup.hidden = false;
+      setup.querySelector('.panel').scrollTop = 0;
+      wordsBox.focus();
+    }
+    function closeSetup() { setup.hidden = true; }
+
+    document.getElementById('setupBtn').addEventListener('click', openSetup);
+    document.getElementById('cancelSetup').addEventListener('click', () => {
+      if (firstRun) { firstRun = false; save(); render(); }
+      closeSetup();
+    });
+    document.getElementById('applySetup').addEventListener('click', () => {
+      const words = draftWords();
+      if (!words.length) { renderSummary(); wordsBox.focus(); return; }
+      const changed = words.join('\n') !== state.words.join('\n');
+      const shuffleOrder = document.getElementById('shuffleOrder').checked;
+      const reorder = changed || shuffleOrder !== state.shuffleOrder;
+      state.words = words;
+      state.shuffleOrder = shuffleOrder;
+      state.caps = document.getElementById('caps').checked;
+      state.sound = document.getElementById('sound').checked;
+      state.hints = document.getElementById('showHints').checked;
+      firstRun = false;
+      if (reorder) newOrder(); else save();
+      closeSetup();
+      render();
+    });
+    setup.addEventListener('click', e => { if (e.target === setup && !firstRun) closeSetup(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !setup.hidden && !firstRun) closeSetup(); });
+
+    // ---------- top bar ----------
+    const BAR_KEY = 'scramble.barHidden';
+    const showBarBtn = document.getElementById('showBar');
+    function setBarHidden(hidden) {
+      document.body.classList.toggle('bar-hidden', hidden);
+      showBarBtn.hidden = !hidden;
+      try { localStorage.setItem(BAR_KEY, hidden ? '1' : '0'); } catch {}
+      fit();
+    }
+    document.getElementById('hideBar').addEventListener('click', () => setBarHidden(true));
+    showBarBtn.addEventListener('click', () => { setBarHidden(false); showBarBtn.blur(); });
+    try { setBarHidden(localStorage.getItem(BAR_KEY) === '1'); } catch {}
+
+    // ---------- boot ----------
+    render();
+    if (firstRun) openSetup();
+  </script>
+</body>
+</html>
