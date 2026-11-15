@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acts Word List</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #1c1e21;
+      --muted: #5f6368;
+      --accent: #3b6ef5;
+      --accent-soft: #e8eefe;
+      --border: #e1e4e8;
+      --row-hover: #f0f3f8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121417;
+        --card: #1c1f24;
+        --text: #e8eaed;
+        --muted: #9aa0a6;
+        --accent: #7aa2ff;
+        --accent-soft: #233052;
+        --border: #2b2f36;
+        --row-hover: #23272e;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px 16px 64px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    main { max-width: 1000px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin: 0 0 4px; }
+    h2 { font-size: 1.25rem; margin: 0 0 12px; }
+    p.sub { color: var(--muted); margin: 0 0 24px; }
+    a { color: var(--accent); }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .controls label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+    select, button {
+      font: inherit;
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+    }
+    select { min-width: 240px; }
+    button:hover, select:hover { border-color: var(--accent); }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+    button.primary:hover { filter: brightness(1.08); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .count { color: var(--muted); margin-left: auto; }
+    .spacer { flex: 1 1 auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+    td.check { width: 36px; text-align: center; padding-right: 0; }
+    td.word, th.word { width: 190px; font-weight: 600; white-space: nowrap; }
+    td.lesson { width: 90px; color: var(--muted); white-space: nowrap; }
+    input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; margin: 0; }
+    tbody tr.row { cursor: pointer; }
+    tbody tr.row:hover { background: var(--row-hover); }
+    tbody tr.row.on { background: var(--accent-soft); }
+    tr.group th {
+      background: var(--bg);
+      color: var(--text);
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: .95rem;
+      padding-top: 14px;
+    }
+    tr.group th span { color: var(--muted); font-weight: 400; margin-left: 8px; }
+    tr.group a { font-size: .85rem; margin-left: 10px; font-weight: 400; }
+    .empty { color: var(--muted); font-style: italic; padding: 16px 0; }
+    .hint { color: var(--muted); font-size: .9rem; margin: 10px 0 0; }
+    #toast {
+      position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+      background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 8px;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    #toast.show { opacity: 1; }
+
+    /* reference table */
+    #reference table td.num { width: 44px; color: var(--muted); }
+    #reference h3 { margin: 18px 0 6px; font-size: 1rem; }
+    #reference h3:first-child { margin-top: 0; }
+
+    @media print {
+      :root { --bg: #fff; --card: #fff; --text: #000; --muted: #555; --accent: #000; --accent-soft: #fff; --border: #ccc; }
+      body { background: #fff; color: #000; padding: 0; }
+      .no-print { display: none !important; }
+      .panel { background: none; border: none; padding: 0; margin: 0; }
+      #reference { display: block; }
+      #reference th, #reference td { border-bottom: 1px solid #ccc; padding: 6px 8px; }
+      #reference h3 { page-break-after: avoid; }
+      tr { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="no-print">
+      <h1>Acts Word List</h1>
+      <p class="sub">Vocabulary from the Acts lessons with read-aloud clues. Pick the words you want, download them as a CSV for <a href="scramble.html">Word Scramble</a>, and print the reference table for the kids.</p>
+    </header>
+
+    <section class="panel no-print" id="picker">
+      <div class="controls">
+        <label for="lessonSelect">Lesson
+          <select id="lessonSelect"></select>
+        </label>
+        <button type="button" id="selectShown">Select all shown</button>
+        <button type="button" id="clearShown">Clear shown</button>
+        <button type="button" id="clearAll">Clear all</button>
+        <span class="count" id="count"></span>
+      </div>
+      <table id="wordTable">
+        <thead>
+          <tr><th></th><th class="word">Word</th><th>Clue / definition</th><th>Lesson</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <p class="hint">Click a row to toggle it. Your selection is remembered on this computer.</p>
+    </section>
+
+    <section class="panel">
+      <div class="controls no-print">
+        <h2 style="margin:0">Selected words</h2>
+        <span class="spacer"></span>
+        <button type="button" class="primary" id="downloadCsv">Download CSV for Word Scramble</button>
+        <button type="button" id="copyWords">Copy words</button>
+        <button type="button" id="downloadRef">Download reference CSV</button>
+        <button type="button" id="printRef">Print reference</button>
+      </div>
+      <p class="hint no-print" style="margin:0 0 14px">The Word Scramble CSV has one word per line and nothing else, so it loads straight into the game. The reference CSV adds the clue and lesson columns.</p>
+      <div id="reference"></div>
+    </section>
+  </main>
+  <div id="toast" role="status"></div>
+
+  <script>
+    const LESSONS = [
+      { id: 25, title: 'Jesus returns to heaven', ref: 'Acts 1:1–11' },
+      { id: 26, title: 'The Holy Spirit arrives', ref: 'Acts 2:1–47' },
+      { id: 27, title: 'Peter and John preach the gospel', ref: 'Acts 3:1–26' },
+      { id: 28, title: 'Ananias and Sapphira lie to the Holy Spirit', ref: 'Acts 4:32–5:11' },
+      { id: 29, title: 'The Jews resist the Holy Spirit', ref: 'Acts 6:1–7:60' },
+      { id: 30, title: 'The Church is persecuted and the gospel spreads', ref: 'Acts 8:1–25' },
+      { id: 31, title: 'Philip shares the gospel with the Ethiopian', ref: 'Acts 8:26–40' },
+      { id: 32, title: 'Saul is converted', ref: 'Acts 9:1–31' },
+      { id: 34, title: 'God frees Peter from prison', ref: 'Acts 12:1–24' },
+      { id: 35, title: 'The Gentiles are saved by faith alone', ref: 'Acts 15:1–35' },
+    ];
+
+    // [lesson, word, clue]
+    const WORDS = [
+      [25, 'Witness', 'A person who tells others the truth about what they saw and heard about Jesus'],
+      [25, 'Ascension', 'When Jesus went up into the sky and was hidden by a cloud'],
+      [25, 'Apostles', 'The men Jesus chose and sent to tell the world about Him'],
+      [25, 'Jerusalem', 'The city where Jesus told the apostles to wait for the Holy Spirit'],
+      [25, 'Samaria', 'A region of people the Jews did not get along with, but Jesus said to witness there too'],
+      [25, 'Kingdom', 'The place where God rules over the people who belong to Him'],
+      [25, 'Forty', 'The number of days Jesus kept appearing to His disciples after He rose'],
+      [25, 'Cloud', 'What hid Jesus from sight when He returned to heaven'],
+      [26, 'Pentecost', 'The feast day fifty days after Easter when the Holy Spirit came'],
+      [26, 'Wind', 'The loud rushing sound from heaven when the Spirit arrived'],
+      [26, 'Fire', 'What rested on each disciple like little tongues on the day the Spirit came'],
+      [26, 'Languages', 'What the disciples suddenly spoke so people from every nation could understand'],
+      [26, 'Peter', 'The apostle who stood up and preached that Jesus is Lord and Christ'],
+      [26, 'Repent', 'To admit you are wrong and turn away from your sin to God'],
+      [26, 'Baptized', 'Dipped in water to show you belong to Jesus'],
+      [26, 'Church', 'The family of believers that was born when three thousand people trusted Jesus'],
+      [26, 'Forgiveness', 'When God washes away your sins and does not hold them against you'],
+      [26, 'Holy Spirit', 'The third person of God who gives believers power to witness'],
+      [27, 'Lame', 'Unable to walk since birth, like the man at the temple gate'],
+      [27, 'Beggar', 'Someone who asks people for money because he cannot work'],
+      [27, 'Temple', 'The building where Peter and John went to pray at three in the afternoon'],
+      [27, 'Beautiful Gate', 'The name of the temple entrance where the crippled man sat'],
+      [27, 'Author of Life', 'The name Peter gave Jesus because all life comes from Him'],
+      [27, 'Nazareth', 'The town in the name Peter used to heal the lame man'],
+      [27, 'Faith', 'Trusting and clinging to Jesus'],
+      [27, 'Leaping', 'What the healed man did along with walking and praising God'],
+      [28, 'Barnabas', 'The nickname given to Joseph because he was an encourager'],
+      [28, 'Ananias', 'The man who lied about the money from his land and fell down dead'],
+      [28, 'Sapphira', 'The wife who agreed to the lie and also died'],
+      [28, 'Hypocrite', 'Someone who pretends to be something they are not'],
+      [28, 'Share', 'What the believers did with everything they owned so no one was in need'],
+      [28, 'Unity', 'Being of one heart and soul like the early church'],
+      [28, 'Grace', "God's undeserved favor and gift"],
+      [29, 'Stephen', 'A servant full of the Holy Spirit who was stoned for telling the truth about Jesus'],
+      [29, 'Seven', 'The number of men chosen to help feed the widows'],
+      [29, 'Stoned', 'How Stephen was killed by the angry crowd'],
+      [29, 'Sanhedrin', 'The Jewish supreme court that put Stephen on trial'],
+      [29, 'Blasphemy', 'Saying things that dishonor God'],
+      [29, 'Stiff-necked', 'Stubborn and refusing to listen to the Holy Spirit'],
+      [29, 'Son of Man', 'The title Stephen used when he saw Jesus standing in heaven'],
+      [29, 'Resist', 'To push back against the Holy Spirit like the Jewish leaders did'],
+      [30, 'Persecution', 'Being treated badly for being a Christian'],
+      [30, 'Scattered', 'What happened to the believers when they fled Jerusalem, taking the gospel with them'],
+      [30, 'Philip', 'The man who preached in Samaria and later met an Ethiopian on a desert road'],
+      [30, 'Samaritans', 'The people who were half Jewish and enemies of the Jews but received the gospel with joy'],
+      [30, 'Simon', 'The sorcerer who tried to buy the power of the Holy Spirit'],
+      [30, 'Gospel', 'The good news that Jesus died in the place of sinners and rose again'],
+      [30, 'Joy', 'What filled the city of Samaria and the Ethiopian after they believed'],
+      [31, 'Ethiopian', 'An important treasurer from Africa who was reading Isaiah in his chariot'],
+      [31, 'Chariot', 'The vehicle Philip ran up to on the road to Gaza'],
+      [31, 'Isaiah', 'The prophet whose scroll said the Messiah would suffer like a lamb'],
+      [31, 'Scroll', 'The rolled-up Bible book the Ethiopian was reading'],
+      [31, 'Gaza', 'The city the desert road from Jerusalem led toward'],
+      [31, 'Angel', 'The messenger who told Philip to go south'],
+      [31, 'Obey', 'What Philip did right away and completely when God spoke'],
+      [31, 'Baptism', 'Being put under water as a sign of belonging to Jesus and being washed from sin'],
+      [32, 'Saul', 'The fiercest persecutor of the church who became a follower of Jesus'],
+      [32, 'Damascus', 'The city Saul was traveling to when Jesus stopped him'],
+      [32, 'Light', 'What flashed from heaven brighter than the sun and knocked Saul down'],
+      [32, 'Blind', 'What Saul was for three days until Ananias prayed for him'],
+      [32, 'Chosen Instrument', 'What Jesus called Saul because He picked him for a special job'],
+      [32, 'Basket', 'What the disciples used to lower Saul down the city wall to escape'],
+      [32, 'Tarsus', "Saul's hometown where he went after Jerusalem"],
+      [32, 'Conversion', 'Turning from self and turning toward Jesus'],
+      [32, 'Peace', 'What the church enjoyed after Saul stopped persecuting it'],
+      [34, 'Herod', 'The king who killed James and arrested Peter to make himself popular with the Jews'],
+      [34, 'James', 'The apostle Herod killed with the sword'],
+      [34, 'Prison', 'Where Peter was locked up with four squads of soldiers guarding him'],
+      [34, 'Chains', "What fell off Peter's wrists when the angel woke him"],
+      [34, 'Guards', 'The soldiers Peter walked right past as if they were not there'],
+      [34, 'Iron Gate', 'The main door of the jail that opened all by itself'],
+      [34, 'Prayer', 'The powerful weapon the church used while Peter was locked up'],
+      [34, 'Passover', 'The holiday Herod was waiting to finish before executing Peter'],
+      [34, 'Rescue', 'What God did for Peter but chose not to do for James'],
+      [34, 'Worms', 'What ate King Herod after he accepted worship that belongs to God'],
+      [34, 'Pride', 'The sin God hates that brought King Herod down'],
+      [34, 'Robe', 'The shiny silver royal clothing Herod wore when the crowd praised him'],
+      [34, 'Caesarea', "Herod's capital city by the sea where he died"],
+      [34, 'Victory', "What God's people always have in the end, even when they suffer"],
+      [35, 'Gentiles', 'People who are not Jews'],
+      [35, 'Salvation', 'Being saved from sin as a free gift that cannot be earned'],
+      [35, 'Council', 'The big meeting of apostles and elders in Jerusalem that settled the argument'],
+      [35, 'Circumcised', 'The special surgery some Jews said Gentiles needed before they could be saved'],
+      [35, 'Law of Moses', 'All the commands God gave Israel that no one could keep perfectly'],
+      [35, 'Cornelius', 'The Gentile whose whole family received the Holy Spirit when Peter preached'],
+      [35, 'Antioch', 'The city where the argument about Gentiles started'],
+      [35, 'Paul', 'The new name of Saul, who argued that Gentiles are saved by faith alone'],
+      [35, 'Elders', 'Church leaders who guard the flock like shepherds'],
+      [35, 'Amos', "The prophet James quoted who said Gentiles would be called by God's name"],
+      [35, 'Idols', 'Gentiles were told not to eat food offered to these false gods'],
+      [35, 'Yoke', 'The heavy burden Peter said even the Jews could never carry'],
+      [35, 'Works', 'Good deeds that can never earn salvation'],
+      [35, 'Letter', 'What the council sent to Antioch to explain its decision'],
+      [35, 'Abraham', 'The man God made His covenant with long before the Law was given'],
+      [35, 'Free Gift', 'What salvation is because Jesus already paid the full price'],
+    ].map(([lesson, word, clue], i) => ({ id: i, lesson, word, clue }));
+
+    const STORE = 'actsWords.selected';
+    const lessonById = Object.fromEntries(LESSONS.map(l => [l.id, l]));
+    let selected = new Set();
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORE) || '[]');
+      saved.forEach(w => { if (WORDS.some(x => x.word === w)) selected.add(w); });
+    } catch (e) { /* ignore */ }
+    const save = () => { try { localStorage.setItem(STORE, JSON.stringify([...selected])); } catch (e) {} };
+
+    // ---------- lesson dropdown ----------
+    const lessonSelect = document.getElementById('lessonSelect');
+    lessonSelect.innerHTML = '<option value="all">All lessons</option>' +
+      LESSONS.map(l => `<option value="${l.id}">Lesson ${l.id}: ${l.title} (${l.ref})</option>`).join('');
+    try {
+      const v = localStorage.getItem('actsWords.lesson');
+      if (v && [...lessonSelect.options].some(o => o.value === v)) lessonSelect.value = v;
+    } catch (e) {}
+    lessonSelect.addEventListener('change', () => {
+      try { localStorage.setItem('actsWords.lesson', lessonSelect.value); } catch (e) {}
+      renderTable();
+    });
+
+    const shownWords = () => lessonSelect.value === 'all' ? WORDS : WORDS.filter(w => String(w.lesson) === lessonSelect.value);
+
+    // ---------- main table ----------
+    const tbody = document.querySelector('#wordTable tbody');
+    function renderTable() {
+      const words = shownWords();
+      let html = '';
+      let lastLesson = null;
+      for (const w of words) {
+        if (w.lesson !== lastLesson) {
+          const l = lessonById[w.lesson];
+          const n = WORDS.filter(x => x.lesson === w.lesson).length;
+          const on = WORDS.filter(x => x.lesson === w.lesson && selected.has(x.word)).length;
+          html += `<tr class="group"><th colspan="4">Lesson ${l.id}: ${l.title}<span>${l.ref}</span>` +
+            `<a href="#" data-lesson="${l.id}" data-act="all">select all</a>` +
+            `<a href="#" data-lesson="${l.id}" data-act="none">clear</a>` +
+            `<span class="lesson-count" data-lesson="${l.id}">${on} of ${n} selected</span></th></tr>`;
+          lastLesson = w.lesson;
+        }
+        const on = selected.has(w.word);
+        html += `<tr class="row${on ? ' on' : ''}" data-word="${esc(w.word)}">` +
+          `<td class="check"><input type="checkbox" ${on ? 'checked' : ''} aria-label="Select ${esc(w.word)}"></td>` +
+          `<td class="word">${esc(w.word)}</td><td>${esc(w.clue)}</td><td class="lesson">Lesson ${w.lesson}</td></tr>`;
+      }
+      tbody.innerHTML = html;
+      updateCounts();
+    }
+    function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+    tbody.addEventListener('click', e => {
+      const a = e.target.closest('a[data-lesson]');
+      if (a) {
+        e.preventDefault();
+        const lesson = Number(a.dataset.lesson);
+        WORDS.filter(w => w.lesson === lesson).forEach(w => a.dataset.act === 'all' ? selected.add(w.word) : selected.delete(w.word));
+        save(); renderTable(); return;
+      }
+      const tr = e.target.closest('tr.row');
+      if (!tr) return;
+      const word = tr.dataset.word;
+      const box = tr.querySelector('input');
+      // If the checkbox itself was clicked, its state has already flipped.
+      const on = e.target === box ? box.checked : !selected.has(word);
+      if (on) selected.add(word); else selected.delete(word);
+      box.checked = on;
+      tr.classList.toggle('on', on);
+      save(); updateCounts();
+    });
+
+    function updateCounts() {
+      document.getElementById('count').textContent = `${selected.size} of ${WORDS.length} selected`;
+      document.querySelectorAll('.lesson-count').forEach(el => {
+        const lesson = Number(el.dataset.lesson);
+        const all = WORDS.filter(x => x.lesson === lesson);
+        el.textContent = `${all.filter(x => selected.has(x.word)).length} of ${all.length} selected`;
+      });
+      const any = selected.size > 0;
+      ['downloadCsv', 'copyWords', 'downloadRef', 'printRef'].forEach(id => document.getElementById(id).disabled = !any);
+      renderReference();
+    }
+
+    document.getElementById('selectShown').addEventListener('click', () => { shownWords().forEach(w => selected.add(w.word)); save(); renderTable(); });
+    document.getElementById('clearShown').addEventListener('click', () => { shownWords().forEach(w => selected.delete(w.word)); save(); renderTable(); });
+    document.getElementById('clearAll').addEventListener('click', () => { selected.clear(); save(); renderTable(); });
+
+    // ---------- reference table ----------
+    const selectedWords = () => WORDS.filter(w => selected.has(w.word));
+    function renderReference() {
+      const ref = document.getElementById('reference');
+      const words = selectedWords();
+      if (!words.length) { ref.innerHTML = '<p class="empty">No words selected yet. Tick words in the table above.</p>'; return; }
+      let html = '';
+      let lastLesson = null, n = 0;
+      for (const w of words) {
+        if (w.lesson !== lastLesson) {
+          if (lastLesson !== null) html += '</tbody></table>';
+          const l = lessonById[w.lesson];
+          html += `<h3>Lesson ${l.id}: ${l.title} <span style="color:var(--muted);font-weight:400">(${l.ref})</span></h3>` +
+            '<table><thead><tr><th></th><th class="word">Word</th><th>Clue</th></tr></thead><tbody>';
+          lastLesson = w.lesson;
+        }
+        html += `<tr><td class="num">${++n}</td><td class="word">${esc(w.word)}</td><td>${esc(w.clue)}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      ref.innerHTML = html;
+    }
+
+    // ---------- export ----------
+    const csvCell = s => /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    function download(name, text) {
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    function fileStem() {
+      const lessons = [...new Set(selectedWords().map(w => w.lesson))];
+      return lessons.length === 1 ? `acts-lesson-${lessons[0]}` : 'acts-words';
+    }
+    document.getElementById('downloadCsv').addEventListener('click', () => {
+      const words = selectedWords();
+      download(fileStem() + '-scramble.csv', words.map(w => csvCell(w.word)).join('\r\n') + '\r\n');
+      toast(`Downloaded ${words.length} word${words.length === 1 ? '' : 's'}`);
+    });
+    document.getElementById('downloadRef').addEventListener('click', () => {
+      const rows = [['Word', 'Clue', 'Lesson'], ...selectedWords().map(w => [w.word, w.clue, 'Lesson ' + w.lesson])];
+      download(fileStem() + '-reference.csv', rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n');
+      toast('Downloaded reference CSV');
+    });
+    document.getElementById('copyWords').addEventListener('click', async () => {
+      const text = selectedWords().map(w => w.word).join('\n');
+      try { await navigator.clipboard.writeText(text); toast('Copied. Paste into the Word Scramble setup box.'); }
+      catch (e) { window.prompt('Copy these words:', text); }
+    });
+    document.getElementById('printRef').addEventListener('click', () => window.print());
+
+    let toastTimer;
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg; el.classList.add('show');
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+    }
+
+    renderTable();
+  </script>
+</body>
+</html>

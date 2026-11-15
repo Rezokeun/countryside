@@ -17,6 +17,7 @@ next. Everything is random each round so kids cannot learn a "safe" spot.
 | `cardflip.html` | Card Flip review game (see below) |
 | `pose.html` | Strike a Pose review game (see below) |
 | `scramble.html` | Word Scramble review game (see below) |
+| `acts-words.html` | Acts vocabulary picker: choose words by lesson, download a Word Scramble CSV, print a reference table |
 | `bingo.html` | Bingo card creator and printer |
 | `sundayschool_colorpicker.html` | Color Picker game with four colors |
 | `sundayschool_colorpicker6.html` | Color Picker game with six colors |
